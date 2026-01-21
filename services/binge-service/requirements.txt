@@ -1,0 +1,26 @@
+# =============================================================================
+# Binge Predictor Service - Dependencies
+# =============================================================================
+# This service predicts user watch continuation using LSTM models
+#
+# Key Libraries:
+#   - fastapi: High-performance API framework
+#   - tensorflow: Deep learning framework for LSTM inference
+#   - numpy: Numerical operations for feature processing
+# =============================================================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Deep Learning (TensorFlow for LSTM)
+tensorflow==2.15.0
+numpy==1.24.3
+
+# Data Processing
+pandas==2.1.4
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0

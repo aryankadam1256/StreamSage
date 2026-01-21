@@ -1,0 +1,38 @@
+# =============================================================================
+# Oracle RAG Service - Dependencies
+# =============================================================================
+# This service implements Retrieval-Augmented Generation (RAG) for movie Q&A
+#
+# Key Libraries Explained:
+#   - fastapi: Modern async web framework (faster than Flask for I/O-bound tasks)
+#   - langchain: Orchestration framework for LLM applications
+#   - chromadb: Vector database for storing and searching embeddings
+#   - sentence-transformers: Convert text to vector embeddings locally
+# =============================================================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# LangChain Ecosystem
+langchain==0.1.0
+langchain-community==0.0.12
+langchain-core==0.1.10
+
+# Vector Database
+chromadb==0.4.22
+
+# Embeddings (runs locally, no API needed)
+sentence-transformers==2.2.2
+
+# LLM Integration (Ollama)
+ollama==0.1.6
+
+# Subtitle Parsing
+pysrt==1.1.2
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0

@@ -1,0 +1,21 @@
+# =============================================================================
+# Sentiment Service - Dependencies
+# =============================================================================
+# This service performs sentiment analysis using BERT transformers
+#
+# Key Libraries:
+#   - flask: Lightweight web framework (demonstrating alternative to FastAPI)
+#   - transformers: HuggingFace's transformer library
+#   - torch: PyTorch deep learning framework
+# =============================================================================
+
+# Web Framework
+flask==3.0.0
+gunicorn==21.2.0
+
+# Transformers (BERT)
+transformers==4.36.2
+torch==2.1.2
+
+# Utilities
+python-dotenv==1.0.0

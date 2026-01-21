@@ -1,0 +1,181 @@
+# =============================================================================
+# StreamSage - Microservices Movie Intelligence Platform
+# =============================================================================
+# This docker-compose file orchestrates all services for the platform.
+# 
+# Architecture Overview:
+#   Frontend (React) ──► Gateway (FastAPI) ──► AI Services
+#                                              ├── Oracle RAG (ChromaDB + Ollama)
+#                                              ├── Binge Predictor (LSTM)
+#                                              └── Sentiment Engine (BERT)
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose up -d ollama   # Start only Ollama (for first-time model pull)
+#   docker-compose logs -f        # View logs
+#   docker-compose down           # Stop all services
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # Ollama - Local LLM Server
+  # ---------------------------------------------------------------------------
+  # Why Ollama? 
+  # - Runs open-source LLMs locally (Llama3, Mistral, etc.)
+  # - No API costs, no rate limits
+  # - Perfect for development and privacy-conscious deployments
+  # 
+  # First-time setup: docker exec -it ollama ollama pull llama3:8b
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: streamsage-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
+  # ---------------------------------------------------------------------------
+  # Oracle RAG Service - The Movie Knowledge Engine
+  # ---------------------------------------------------------------------------
+  # Purpose: Answers questions about movies using subtitle transcripts
+  # Tech: FastAPI + LangChain + ChromaDB + Ollama
+  # 
+  # Key Concept (RAG):
+  # 1. User asks: "What happened at the 45-minute mark?"
+  # 2. Service retrieves relevant subtitle chunks from vector DB
+  # 3. LLM generates answer using retrieved context
+  # ---------------------------------------------------------------------------
+  oracle-rag-service:
+    build:
+      context: ./services/oracle-rag-service
+      dockerfile: Dockerfile
+    container_name: streamsage-oracle
+    ports:
+      - "8001:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - CHROMA_PERSIST_DIR=/app/data/chromadb
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data/chromadb:/app/data/chromadb
+      - ./data/subtitles:/app/data/subtitles
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Binge Predictor Service - Watch Pattern Analysis
+  # ---------------------------------------------------------------------------
+  # Purpose: Predicts if a user will continue watching (drop-off probability)
+  # Tech: FastAPI + TensorFlow/Keras LSTM
+  # 
+  # Key Concept (LSTM):
+  # Sequential model that "remembers" viewing patterns over time
+  # Input: User's recent watch history
+  # Output: Probability of continuing to watch
+  # ---------------------------------------------------------------------------
+  binge-service:
+    build:
+      context: ./services/binge-service
+      dockerfile: Dockerfile
+    container_name: streamsage-binge
+    ports:
+      - "8002:8000"
+    environment:
+      - MODEL_PATH=/app/models/binge_model.h5
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data/models:/app/models
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Sentiment Service - Movie Review Analysis
+  # ---------------------------------------------------------------------------
+  # Purpose: Analyzes sentiment of movie reviews and comments
+  # Tech: Flask + HuggingFace Transformers (BERT)
+  # 
+  # Key Concept (BERT):
+  # Pre-trained transformer model fine-tuned on movie reviews
+  # Understands context bidirectionally for nuanced sentiment detection
+  # ---------------------------------------------------------------------------
+  sentiment-service:
+    build:
+      context: ./services/sentiment-service
+      dockerfile: Dockerfile
+    container_name: streamsage-sentiment
+    ports:
+      - "8003:5000"
+    environment:
+      - MODEL_PATH=/app/models/sentiment_model
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data/models:/app/models
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # API Gateway - Central Router
+  # ---------------------------------------------------------------------------
+  # Purpose: Single entry point for all API requests
+  # Tech: FastAPI with async routing
+  # 
+  # Pattern: API Gateway (from "Building Microservices" by Sam Newman)
+  # - Centralizes authentication, rate limiting, logging
+  # - Shields clients from knowing about internal service topology
+  # - Enables service versioning and A/B testing
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: streamsage-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - ORACLE_SERVICE_URL=http://oracle-rag-service:8000
+      - BINGE_SERVICE_URL=http://binge-service:8000
+      - SENTIMENT_SERVICE_URL=http://sentiment-service:5000
+      - LOG_LEVEL=INFO
+    depends_on:
+      - oracle-rag-service
+      - binge-service
+      - sentiment-service
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Frontend - Cyberpunk Dashboard
+  # ---------------------------------------------------------------------------
+  # Purpose: User interface for movie intelligence
+  # Tech: React + Vite + Tailwind CSS
+  # 
+  # Components:
+  # - VibeBar: Sentiment visualization
+  # - OracleChat: Time-travel Q&A interface
+  # - BingeGauge: Watch pattern speedometer
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: streamsage-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes - Persistent Data Storage
+# =============================================================================
+volumes:
+  ollama_data:
+    name: streamsage-ollama-data

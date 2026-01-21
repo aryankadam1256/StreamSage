@@ -1,0 +1,21 @@
+# =============================================================================
+# API Gateway - Dependencies
+# =============================================================================
+# The gateway is the single entry point for all client requests
+#
+# Key Libraries:
+#   - fastapi: Async API framework for routing
+#   - httpx: Async HTTP client for calling backend services
+# =============================================================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# HTTP Client (async)
+httpx==0.26.0
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
