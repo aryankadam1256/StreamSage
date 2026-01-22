@@ -1,0 +1,51 @@
+# ============================================================================
+# Movie Assistant Service - Requirements
+# ============================================================================
+# This RAG service replaces the binge predictor with intelligent movie discovery
+#
+# Key Dependencies Explained:
+# ---------------------------
+# 
+# 🔹 FastAPI Stack:
+#   - fastapi: Modern async web framework (beats Flask for I/O-bound tasks)
+#   - uvicorn: Lightning-fast ASGI server
+#   - pydantic: Runtime type validation + auto-docs
+#
+# 🔹 RAG Core:
+#   - langchain: Orchestrates the retrieval → generation pipeline
+#   - langchain-community: Community integrations (Ollama, ChromaDB)
+#   - chromadb: Vector database for semantic search
+#
+# 🔹 Embeddings:
+#   - sentence-transformers: Local embedding generation (no API needed!)
+#   - Works offline, free forever
+#
+# 🔹 LLM Integration:
+#   - ollama: Python client for local Ollama server
+#   - Supports Mistral, Llama, Phi, etc.
+#
+# ============================================================================
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# RAG Orchestration
+langchain==0.1.0
+langchain-community==0.0.12
+langchain-core==0.1.10
+
+# Vector Database
+chromadb==0.4.22
+
+# Embeddings (Local, No API)
+sentence-transformers==2.2.2
+
+# LLM Integration (HuggingFace Inference API)
+huggingface-hub==0.20.3
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
