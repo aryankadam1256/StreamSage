@@ -48,3 +48,6 @@ yarn-error.log*
 
 # Docker
 *.tar
+
+# Large Data Files
+**/data/raw/

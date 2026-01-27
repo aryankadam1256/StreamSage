@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia Data Enricher - Browser Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #e67e22;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-section {
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #e67e22;
+            background: #fffaf0;
+        }
+
+        .progress-section {
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f6d365 0%, #fda085 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #e67e22;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #d35400;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #219150;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-success {
+            color: #66bb6a;
+        }
+
+        .log-error {
+            color: #ef5350;
+        }
+
+        .log-info {
+            color: #4fc3f7;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📚 Wikipedia Enricher</h1>
+        <p class="subtitle">Add plot summaries and themes to your dataset</p>
+
+        <div class="upload-section" id="upload-area">
+            <input type="file" id="file-input" accept=".json" style="display: none">
+            <button class="btn-primary" onclick="document.getElementById('file-input').click()">
+                📂 Load movies.json
+            </button>
+            <p style="margin-top: 10px; font-size: 12px; color: #999">Select your collected movies.json file</p>
+        </div>
+
+        <div class="progress-section" id="progress-section">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span>Enrichment Progress</span>
+                <span id="percent">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%">0 / 0</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total Movies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-enriched">0</div>
+                <div class="stat-label">Enriched</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-failed">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="start-btn" onclick="startEnrichment()" disabled>Start Enrichment</button>
+            <button class="btn-success" id="download-btn" onclick="downloadData()" disabled>Download Enriched
+                Data</button>
+        </div>
+
+        max-width: 800px;
+        width: 100%;
+        }
+
+        h1 {
+        color: #e67e22;
+        margin-bottom: 10px;
+        font-size: 32px;
+        }
+
+        .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+        }
+
+        .upload-section {
+        border: 2px dashed #ddd;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        margin-bottom: 30px;
+        transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+        border-color: #e67e22;
+        background: #fffaf0;
+        }
+
+        .progress-section {
+        margin-bottom: 20px;
+        display: none;
+        }
+
+        .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        }
+
+        .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f6d365 0%, #fda085 100%);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        }
+
+        .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-top: 20px;
+        }
+
+        .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+        }
+
+        .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        }
+
+        .stat-label {
+        font-size: 12px;
+        color: #666;
+        }
+
+        .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        }
+
+        button {
+        flex: 1;
+        padding: 14px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+        background: #e67e22;
+        color: white;
+        }
+
+        .btn-primary:hover {
+        background: #d35400;
+        }
+
+        .btn-success {
+        background: #27ae60;
+        color: white;
+        }
+
+        .btn-success:hover {
+        background: #219150;
+        }
+
+        button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        }
+
+        .log-container {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        border-radius: 10px;
+        padding: 15px;
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        margin-top: 20px;
+        }
+
+        .log-entry {
+        margin-bottom: 5px;
+        }
+
+        .log-success {
+        color: #66bb6a;
+        }
+
+        .log-error {
+        color: #ef5350;
+        }
+
+        .log-info {
+        color: #4fc3f7;
+        }
+        </style>
+        </head>
+
+        <body>
+            <div class="container">
+                <h1>📚 Wikipedia Enricher</h1>
+                <p class="subtitle">Add plot summaries and themes to your dataset</p>
+
+                <div class="upload-section" id="upload-area">
+                    <input type="file" id="file-input" accept=".json" style="display: none">
+                    <button class="btn-primary" onclick="document.getElementById('file-input').click()">
+                        📂 Load movies.json
+                    </button>
+                    <p style="margin-top: 10px; font-size: 12px; color: #999">Select your collected movies.json file</p>
+                </div>
+
+                <div class="progress-section" id="progress-section">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>Enrichment Progress</span>
+                        <span id="percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%">0 / 0</div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Movies</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-enriched">0</div>
+                        <div class="stat-label">Enriched</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-failed">0</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" id="start-btn" onclick="startEnrichment()" disabled>Start
+                        Enrichment</button>
+                    <button class="btn-success" id="download-btn" onclick="downloadData()" disabled>Download Enriched
+                        Data</button>
+                </div>
+
+                <div class="log-container" id="log-container">
+                    <div class="log-entry log-info">Waiting for file upload...</div>
+                </div>
+            </div>
+
+            <script>
+                let moviesData = {};
+                let moviesList = [];
+                let enrichedCount = 0;
+                let failedCount = 0;
+                let isRunning = false;
+
+                // Constants
+                // const MAX_MOVIES_TO_ENRICH = 1000; // Removed limit
+                const RATE_LIMIT_DELAY = 100; // 100ms delay (10 req/s)
+
+                function log(msg, type = 'info') {
+                    const div = document.createElement('div');
+                    div.className = `log-entry log-${type}`;
+                    div.textContent = `> ${msg}`;
+                    const container = document.getElementById('log-container');
+                    container.appendChild(div);
+                    container.scrollTop = container.scrollHeight;
+                }
+
+                // File Upload Handler
+                document.getElementById('file-input').addEventListener('change', function (e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        try {
+                            moviesData = JSON.parse(e.target.result);
+
+                            // Convert object to list for sorting
+                            moviesList = Object.values(moviesData);
+
+                            // Sort by popularity
+                            moviesList.sort((a, b) => (b.details?.popularity || 0) - (a.details?.popularity || 0));
+
+                            document.getElementById('stat-total').textContent = moviesList.length;
+                            document.getElementById('start-btn').disabled = false;
+                            document.getElementById('upload-area').style.display = 'none';
+                            document.getElementById('progress-section').style.display = 'block';
+
+                            log(`Loaded ${moviesList.length} movies. Ready to enrich ALL movies.`, 'success');
+                        } catch (err) {
+                            log('Error parsing JSON: ' + err.message, 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+
+                async function searchWikipedia(title, year) {
+                    const queries = [
+                        `${title} ${year} film`,
+                        `${title} film`,
+                        title
+                    ];
+
+                    for (const query of queries) {
+                        try {
+                            const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+                            const res = await fetch(url);
+                            const data = await res.json();
+
+                            if (data.query?.search?.length > 0) {
+                                return data.query.search[0].pageid;
+                            }
+                        } catch (e) {
+                            // Continue to next query
+                        }
+                    }
+                    return null;
+                }
+
+                async function getWikipediaDetails(pageid) {
+                    try {
+                        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&pageids=${pageid}&format=json&origin=*`;
+                        const res = await fetch(url);
+                        const data = await res.json();
+
+                        const page = data.query?.pages?.[pageid];
+                        if (page) {
+                            return {
+                                summary: page.extract,
+                                title: page.title
+                            };
+                        }
+                    } catch (e) {
+                        return null;
+                    }
+                    return null;
+                }
+
+                async function startEnrichment() {
+                    if (isRunning) return;
+                    isRunning = true;
+                    document.getElementById('start-btn').disabled = true;
+
+                    // Enrich ALL movies
+                    const targetMovies = moviesList;
+                    const total = targetMovies.length;
+
+                    log(`Starting enrichment for ALL ${total} movies... (Estimated time: ~${Math.round(total * 0.15 / 60)} mins)`, 'info');
+
+                    for (let i = 0; i < total; i++) {
+                        const movie = targetMovies[i];
+                        const title = movie.details.title;
+                        const year = movie.details.release_date ? movie.details.release_date.substring(0, 4) : '';
+
+                        try {
+                            // Rate limit
+                            await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
+
+                            // 1. Search
+                            const pageid = await searchWikipedia(title, year);
+
+                            if (pageid) {
+                                // 2. Get Details
+                                const details = await getWikipediaDetails(pageid);
+
+                                if (details) {
+                                    // Update movie data
+                                    moviesData[movie.id].wiki_enrichment = {
+                                        wiki_summary: details.summary,
+                                        wiki_title: details.title,
+                                        wiki_pageid: pageid
+                                    };
+                                    enrichedCount++;
+                                    log(`Enriched: ${title}`, 'success');
+                                } else {
+                                    failedCount++;
+                                    log(`No details: ${title}`, 'error');
+                                }
+                            } else {
+                                failedCount++;
+                                log(`Not found: ${title}`, 'error');
+                            }
+
+                        } catch (err) {
+                            failedCount++;
+                            log(`Error ${title}: ${err.message}`, 'error');
+                        }
+
+                        // Update UI
+                        const percent = Math.round(((i + 1) / total) * 100);
+                        document.getElementById('progress-fill').style.width = `${percent}%`;
+                        document.getElementById('progress-fill').textContent = `${i + 1} / ${total}`;
+                        document.getElementById('percent').textContent = `${percent}%`;
+                        document.getElementById('stat-enriched').textContent = enrichedCount;
+                        document.getElementById('stat-failed').textContent = failedCount;
+                    }
+
+                    log('Enrichment complete!', 'success');
+                    document.getElementById('download-btn').disabled = false;
+                    isRunning = false;
+                }
+
+                function downloadData() {
+                    const dataStr = JSON.stringify(moviesData, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'movies_enriched.json';
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    log('Downloaded movies_enriched.json', 'success');
+                }
+            </script>
+        </body>
+
+</html>

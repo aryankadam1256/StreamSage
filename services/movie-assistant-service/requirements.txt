@@ -49,3 +49,7 @@ huggingface-hub==0.20.3
 python-dotenv==1.0.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
+
+# Data Collection & Dataset Generation
+requests==2.31.0
+tqdm==4.66.1
