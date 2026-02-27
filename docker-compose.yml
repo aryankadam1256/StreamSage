@@ -46,12 +46,15 @@ services:
   # Oracle RAG Service - The Movie Knowledge Engine
   # ---------------------------------------------------------------------------
   # Purpose: Answers questions about movies using subtitle transcripts
-  # Tech: FastAPI + LangChain + ChromaDB + Ollama
-  # 
+  # Tech: FastAPI + ChromaDB + sentence-transformers + Ollama (Llama 3:8B)
+  #
   # Key Concept (RAG):
   # 1. User asks: "What happened at the 45-minute mark?"
   # 2. Service retrieves relevant subtitle chunks from vector DB
   # 3. LLM generates answer using retrieved context
+  #
+  # Data Pipeline: .srt → Parse → Chunk → Embed → ChromaDB
+  # Inference: Query → Embed → Vector Search → Prompt → Ollama → Answer
   # ---------------------------------------------------------------------------
   oracle-rag-service:
     build:
@@ -62,11 +65,11 @@ services:
       - "8001:8000"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-      - CHROMA_PERSIST_DIR=/app/data/chromadb
+      - LLM_MODEL=llama3:8b
       - LOG_LEVEL=INFO
     volumes:
-      - ./data/chromadb:/app/data/chromadb
-      - ./data/subtitles:/app/data/subtitles
+      - ./services/oracle-rag-service/data/chromadb:/app/data/chromadb
+      - ./services/oracle-rag-service/data/subtitles:/app/data/subtitles
     depends_on:
       - ollama
     restart: unless-stopped
@@ -121,6 +124,35 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
+  # Movie Assistant Service - Fine-tuned Llama 3 Movie Discovery
+  # ---------------------------------------------------------------------------
+  # Purpose: Conversational movie recommendations using RAG + fine-tuned LLM
+  # Tech: FastAPI + ChromaDB + HuggingFace (fine-tuned Llama 3 8B QLoRA)
+  #
+  # Key Concepts:
+  # - Fine-tuning: Llama 3 8B trained on 2946 movie recommendation Q&A pairs
+  # - QLoRA: 4-bit quantization + LoRA adapters (fits in 16GB VRAM)
+  # - RAG: Vector search (ChromaDB) augments LLM with real movie data
+  # - Inference optimizations: SDPA, KV cache, BF16, gradient checkpointing
+  # ---------------------------------------------------------------------------
+  movie-assistant-service:
+    build:
+      context: ./services/movie-assistant-service
+      dockerfile: Dockerfile
+    container_name: streamsage-movie-assistant
+    ports:
+      - "8004:8004"
+    environment:
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      - INFERENCE_BACKEND=api
+      - LOCAL_MODEL_PATH=
+      - CHROMA_DB_PATH=/app/data/chroma_db
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./services/movie-assistant-service/data/chroma_db:/app/data/chroma_db
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
   # API Gateway - Central Router
   # ---------------------------------------------------------------------------
   # Purpose: Single entry point for all API requests
@@ -142,11 +174,13 @@ services:
       - ORACLE_SERVICE_URL=http://oracle-rag-service:8000
       - BINGE_SERVICE_URL=http://binge-service:8000
       - SENTIMENT_SERVICE_URL=http://sentiment-service:5000
+      - MOVIE_ASSISTANT_SERVICE_URL=http://movie-assistant-service:8004
       - LOG_LEVEL=INFO
     depends_on:
       - oracle-rag-service
       - binge-service
       - sentiment-service
+      - movie-assistant-service
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
