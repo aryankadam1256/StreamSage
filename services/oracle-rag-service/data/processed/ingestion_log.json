@@ -1,0 +1,17 @@
+[
+  {
+    "movie_id": "echoes_of_time",
+    "status": "skipped",
+    "existing_chunks": 7
+  },
+  {
+    "movie_id": "inception",
+    "status": "skipped",
+    "existing_chunks": 7
+  },
+  {
+    "movie_id": "the_signal",
+    "status": "skipped",
+    "existing_chunks": 7
+  }
+]

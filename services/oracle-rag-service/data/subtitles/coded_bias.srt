@@ -1,0 +1,55 @@
+1
+00:06:08,571 --> 00:06:14,571
+Coded Bias is a documentary film directed by Shalini Kantayya.
+
+2
+00:12:17,142 --> 00:12:23,142
+Exploring the fallout of MIT Media Lab researcher Joy Buolamwini's startling discovery that facial recognition does not
+see dark-skinned faces accurately, and her journey to push for the first-ever legislation in the U.S.
+
+3
+00:18:25,714 --> 00:18:31,714
+to govern against bias in the algorithms that impact us all.
+
+4
+00:24:34,285 --> 00:24:40,285
+Self, played by Joy Buolamwini.
+
+5
+00:30:42,857 --> 00:30:48,857
+Self, played by Cathy O'Neil.
+
+6
+00:36:51,428 --> 00:36:57,428
+Self, played by Meredith Broussard.
+
+7
+00:43:00,000 --> 00:43:06,000
+Self, played by Silkie Carlo.
+
+8
+00:49:08,571 --> 00:49:14,571
+Self, played by Virginia Eubanks.
+
+9
+00:55:17,142 --> 00:55:23,142
+Self, played by Ravi Naik.
+
+10
+01:01:25,714 --> 01:01:31,714
+Coded Bias is an American documentary film directed by Shalini
+Kantayya that premiered at the 2020 Sundance Film Festival.
+
+11
+01:07:34,285 --> 01:07:40,285
+The film includes contributions from researchers Joy Buolamwini, Deborah Raji, Meredith Broussard, Cathy
+O’Neil, Zeynep Tufekci, Safiya Noble, Timnit Gebru, Virginia Eubanks, and Silkie Carlo, and others.
+
+12
+01:13:42,857 --> 01:13:48,857
+The film explores themes of artificial intelligence (a.i.),
+silicon valley, civil rights, sexism, racism.
+
+13
+01:19:51,428 --> 01:19:57,428
+The tone is dark.

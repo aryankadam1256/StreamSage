@@ -1,0 +1,67 @@
+1
+00:06:26,250 --> 00:06:32,250
+Making fun and games is anything but fun and games.
+
+2
+00:12:52,500 --> 00:12:58,500
+Indie Game: The Movie is a documentary film directed by Lisanne Pajot.
+
+3
+00:19:18,750 --> 00:19:24,750
+Follows the dramatic journeys of video game developers as they
+create and release their games to the world.
+
+4
+00:25:45,000 --> 00:25:51,000
+It's about making video games, but at its core, it's about the
+creative process, and exposing yourself through your work.
+
+5
+00:32:11,250 --> 00:32:17,250
+Self, played by Edmund McMillen.
+
+6
+00:38:37,500 --> 00:38:43,500
+Self, played by Tommy Refenes.
+
+7
+00:45:03,750 --> 00:45:09,750
+Self, played by Phil Fish.
+
+8
+00:51:30,000 --> 00:51:36,000
+Self, played by Jonathan Blow.
+
+9
+00:57:56,250 --> 00:58:02,250
+Self, played by Anthony Carboni.
+
+10
+01:04:22,500 --> 01:04:28,500
+Indie Game: The Movie is a 2012 documentary film made by
+Canadian filmmakers James Swirsky and Lisanne Pajot.
+
+11
+01:10:48,750 --> 01:10:54,750
+The film is about the struggles of independent game developers Edmund McMillen and Tommy Refenes during the development of Super
+Meat Boy, Phil Fish during the development of Fez, and also Jonathan Blow, who reflects on the success of Braid.
+
+12
+01:17:15,000 --> 01:17:21,000
+After two successful Kickstarter funds, interviews were conducted
+with prominent indie developers within the community.
+
+13
+01:23:41,250 --> 01:23:47,250
+After recording over 300 hours of footage, Swirsky and Pajot decided to
+cut the movie down to follow the four developers selected.
+
+14
+01:30:07,500 --> 01:30:13,500
+Their reasoning behind this was to show game development in the "past,
+present and future" tenses through each individual's story.
+
+15
+01:36:33,750 --> 01:36:39,750
+The film explores themes of game, woman director,
+computer programming, programmer.

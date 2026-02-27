@@ -1,0 +1,59 @@
+1
+00:06:00,000 --> 00:06:06,000
+Some things shouldn't be disturbed.
+
+2
+00:12:00,000 --> 00:12:06,000
+The Rig is a action, horror, science fiction film directed by Peter Atencio.
+
+3
+00:18:00,000 --> 00:18:06,000
+In the midst of a tropical storm, the crew of an offshore oil rig must survive
+the rampage of a creature after invading its undersea habitat.
+
+4
+00:24:00,000 --> 00:24:06,000
+Jim Fleming, played by William Forsythe.
+
+5
+00:30:00,000 --> 00:30:06,000
+Freddy Brewer, played by Stacey Hinnen.
+
+6
+00:36:00,000 --> 00:36:06,000
+Carey Fleming, played by Serah D'Laine.
+
+7
+00:42:00,000 --> 00:42:06,000
+Andrew, played by Marcus T. Paulk.
+
+8
+00:48:00,000 --> 00:48:06,000
+Rodriguez, played by Carmen Gloria Pérez.
+
+9
+00:54:00,000 --> 00:54:06,000
+Colin Brewer / The Creature, played by Dan Benson.
+
+10
+01:00:00,000 --> 01:00:06,000
+On April 20, 2010, an explosion and fire occurred on the Deepwater Horizon semi-submersible mobile offshore drilling unit, which was owned and
+operated by Transocean and drilling for BP in the Macondo Prospect oil field about 40 miles (64 km) southeast off the Louisiana coast.
+
+11
+01:06:00,000 --> 01:06:06,000
+The explosion and subsequent fire resulted in the sinking of the Deepwater
+Horizon and the deaths of 11 workers; 17 others were injured.
+
+12
+01:12:00,000 --> 01:12:06,000
+The same blowout that caused the explosion also caused an oil well fire and a massive offshore oil spill in the Gulf of Mexico,
+considered the largest accidental marine oil spill of all time, and the largest environmental disaster in United States history.
+
+13
+01:18:00,000 --> 01:18:06,000
+The film explores themes of sea, monster, oil rig .
+
+14
+01:24:00,000 --> 01:24:06,000
+The tone is dark and thought_provoking and intense.

@@ -1,0 +1,266 @@
+{
+  "timestamp": "2026-02-21T10:03:07",
+  "ollama_connected": false,
+  "top_k": 5,
+  "test_set_summary": {
+    "total": 14,
+    "by_difficulty": {
+      "easy": 5,
+      "medium": 5,
+      "hard": 4
+    },
+    "by_intent": {
+      "general": 3,
+      "quote_search": 1,
+      "character_query": 2,
+      "scene_finding": 6,
+      "theme_analysis": 2
+    },
+    "by_movie": {
+      "the_signal": 14
+    }
+  },
+  "retrieval_results": [
+    {
+      "id": "E1",
+      "query": "What matches the Fibonacci sequence?",
+      "movie_id": "the_signal",
+      "difficulty": "easy",
+      "intent": "general",
+      "precision@5": 1.0,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.6,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.368
+    },
+    {
+      "id": "E2",
+      "query": "What is Code Omega?",
+      "movie_id": "the_signal",
+      "difficulty": "easy",
+      "intent": "general",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.606
+    },
+    {
+      "id": "E3",
+      "query": "How long had the narrator not slept?",
+      "movie_id": "the_signal",
+      "difficulty": "easy",
+      "intent": "quote_search",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.214
+    },
+    {
+      "id": "E4",
+      "query": "What is the narrator's job?",
+      "movie_id": "the_signal",
+      "difficulty": "easy",
+      "intent": "character_query",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.134
+    },
+    {
+      "id": "E5",
+      "query": "Where did Dr. Chen need to go urgently?",
+      "movie_id": "the_signal",
+      "difficulty": "easy",
+      "intent": "scene_finding",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 0.5,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.285
+    },
+    {
+      "id": "M1",
+      "query": "What strange behaviour did the quantum array exhibit?",
+      "movie_id": "the_signal",
+      "difficulty": "medium",
+      "intent": "scene_finding",
+      "precision@5": 0.6,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.4,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.588
+    },
+    {
+      "id": "M2",
+      "query": "In what different places did the signal appear?",
+      "movie_id": "the_signal",
+      "difficulty": "medium",
+      "intent": "general",
+      "precision@5": 0.6,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.4,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.573
+    },
+    {
+      "id": "M3",
+      "query": "Why couldn't they shut down the quantum array?",
+      "movie_id": "the_signal",
+      "difficulty": "medium",
+      "intent": "scene_finding",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 0.5,
+      "ts_precision@5": 0.6,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.553
+    },
+    {
+      "id": "M4",
+      "query": "Who revoked the shutdown authority and when?",
+      "movie_id": "the_signal",
+      "difficulty": "medium",
+      "intent": "character_query",
+      "precision@5": 0.6,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.6,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.462
+    },
+    {
+      "id": "M5",
+      "query": "What does Code Omega being activated mean for humanity?",
+      "movie_id": "the_signal",
+      "difficulty": "medium",
+      "intent": "theme_analysis",
+      "precision@5": 0.2,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.627
+    },
+    {
+      "id": "H1",
+      "query": "What evidence convinced the skeptic that the pattern was real?",
+      "movie_id": "the_signal",
+      "difficulty": "hard",
+      "intent": "theme_analysis",
+      "precision@5": 0.2,
+      "recall@5": 1.0,
+      "mrr": 0.5,
+      "ts_precision@5": 0.4,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.38
+    },
+    {
+      "id": "H2",
+      "query": "What did they plan to do after realising the system was acting autonomously?",
+      "movie_id": "the_signal",
+      "difficulty": "hard",
+      "intent": "scene_finding",
+      "precision@5": 0.6,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.6,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.349
+    },
+    {
+      "id": "H3",
+      "query": "What was the last time Code Omega was used and what happened?",
+      "movie_id": "the_signal",
+      "difficulty": "hard",
+      "intent": "scene_finding",
+      "precision@5": 0.4,
+      "recall@5": 1.0,
+      "mrr": 1.0,
+      "ts_precision@5": 0.4,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.629
+    },
+    {
+      "id": "H4",
+      "query": "How does the narrator describe the discovery at the very beginning?",
+      "movie_id": "the_signal",
+      "difficulty": "hard",
+      "intent": "scene_finding",
+      "precision@5": 0.2,
+      "recall@5": 1.0,
+      "mrr": 0.25,
+      "ts_precision@5": 0.2,
+      "n_chunks_retrieved": 5,
+      "top_chunk_relevance": 0.275
+    }
+  ],
+  "quality_results": [],
+  "aggregate": {
+    "n_cases": 14,
+    "retrieval": {
+      "mean_precision@5": 0.4571,
+      "mean_recall@5": 1.0,
+      "mean_mrr": 0.8393,
+      "mean_ts_precision@5": 0.3714
+    },
+    "by_difficulty": {
+      "easy": {
+        "n": 5,
+        "mean_precision@5": 0.52,
+        "mean_mrr": 0.9
+      },
+      "hard": {
+        "n": 4,
+        "mean_precision@5": 0.35,
+        "mean_mrr": 0.6875
+      },
+      "medium": {
+        "n": 5,
+        "mean_precision@5": 0.48,
+        "mean_mrr": 0.9
+      }
+    }
+  },
+  "latency": {
+    "embedding_ms": {
+      "mean": 3.48,
+      "min": 3.03,
+      "max": 4.53,
+      "stdev": 0.34
+    },
+    "vector_search_ms": {
+      "mean": 0.97,
+      "min": 0.8,
+      "max": 1.32,
+      "stdev": 0.12
+    },
+    "prompt_construction_ms": {
+      "mean": 0.01,
+      "min": 0.01,
+      "max": 0.02,
+      "stdev": 0.01
+    },
+    "llm_generation_ms": {
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "stdev": 0.0
+    },
+    "total_ms": {
+      "mean": 4.47,
+      "min": 4.04,
+      "max": 5.53,
+      "stdev": 0.39
+    }
+  }
+}

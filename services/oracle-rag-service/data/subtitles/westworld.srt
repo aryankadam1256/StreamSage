@@ -1,0 +1,89 @@
+1
+00:04:14,285 --> 00:04:20,285
+Boy, have we got a vacation for you...
+
+2
+00:08:28,571 --> 00:08:34,571
+Westworld is a adventure, science fiction, western
+film directed by Michael Crichton.
+
+3
+00:12:42,857 --> 00:12:48,857
+Delos is a futuristic amusement park that features themed
+worlds populated by human-like androids.
+
+4
+00:16:57,142 --> 00:17:03,142
+After two patrons have a run-in with a menacing gunslinger in West World, the androids
+at Delos all begin to malfunction, causing havoc throughout the park.
+
+5
+00:21:11,428 --> 00:21:17,428
+The Gunslinger, played by Yul Brynner.
+
+6
+00:25:25,714 --> 00:25:31,714
+Peter Martin, played by Richard Benjamin.
+
+7
+00:29:40,000 --> 00:29:46,000
+John Blane, played by James Brolin.
+
+8
+00:33:54,285 --> 00:34:00,285
+Medieval Knight, played by Norman Bartold.
+
+9
+00:38:08,571 --> 00:38:14,571
+Chief Supervisor, played by Alan Oppenheimer.
+
+10
+00:42:22,857 --> 00:42:28,857
+Medieval Queen, played by Victoria Shaw.
+
+11
+00:46:37,142 --> 00:46:43,142
+Westworld is a 1973 American science fiction Western film
+written and directed by Michael Crichton.
+
+12
+00:50:51,428 --> 00:50:57,428
+The film follows guests visiting an interactive amusement park containing
+lifelike androids that unexpectedly begin to malfunction.
+
+13
+00:55:05,714 --> 00:55:11,714
+The film stars Yul Brynner as an android in the amusement park, with
+Richard Benjamin and James Brolin as guests of the park.
+
+14
+00:59:20,000 --> 00:59:26,000
+The film was from an original screenplay by Crichton and was his
+first theatrical film as director, after one TV film.
+
+15
+01:03:34,285 --> 01:03:40,285
+It was also the first feature film to use digital image processing to
+pixellate photography to simulate an android point of view.
+
+16
+01:07:48,571 --> 01:07:54,571
+Critical reception was largely positive by contemporary and retrospective critics
+and Westworld was nominated for Hugo, Nebula, and Saturn awards.
+
+17
+01:12:02,857 --> 01:12:08,857
+Westworld was followed by a sequel, Futureworld (1976), and a
+short-lived television series, Beyond Westworld (1980).
+
+18
+01:16:17,142 --> 01:16:23,142
+A television series based on the film debuted in 2016 on HBO.
+
+19
+01:20:31,428 --> 01:20:37,428
+The film explores themes of future, android, man vs machine, saloon, old town.
+
+20
+01:24:45,714 --> 01:24:51,714
+The tone is lighthearted and thought_provoking.

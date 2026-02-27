@@ -1,0 +1,246 @@
+1
+00:00:05,200 --> 00:00:08,100
+I know what you're thinking.
+
+2
+00:00:08,500 --> 00:00:11,900
+You're wondering how I got here,
+standing at the edge of everything.
+
+3
+00:00:12,400 --> 00:00:15,600
+The truth is, nobody plans
+for something like this.
+
+4
+00:00:16,100 --> 00:00:19,300
+It started three months ago,
+in a city that never sleeps.
+
+5
+00:00:20,000 --> 00:00:22,800
+I was just a programmer,
+writing code for a living.
+
+6
+00:00:23,200 --> 00:00:26,500
+Nothing special. Nothing heroic.
+Just another face in the crowd.
+
+7
+00:00:27,100 --> 00:00:30,400
+Then the signal appeared.
+A pattern hidden in the noise.
+
+8
+00:00:31,000 --> 00:00:34,200
+At first I thought it was a glitch.
+A bug in the system.
+
+9
+00:00:34,800 --> 00:00:37,900
+But patterns don't repeat
+by accident. Not like this.
+
+10
+00:00:38,500 --> 00:00:41,300
+[phone ringing]
+Can you see it too?
+
+11
+00:00:41,800 --> 00:00:44,600
+See what? I don't understand
+what you're talking about.
+
+12
+00:00:45,100 --> 00:00:48,500
+The signal. It's everywhere.
+In the data streams, the networks.
+
+13
+00:00:49,000 --> 00:00:52,200
+You sound paranoid. When was
+the last time you slept?
+
+14
+00:00:52,800 --> 00:00:55,600
+Three days ago. Maybe four.
+I can't stop now.
+
+15
+00:00:56,200 --> 00:00:59,100
+You need help. Professional help.
+This obsession isn't healthy.
+
+16
+00:01:00,000 --> 00:01:03,400
+It's not an obsession. Look at this.
+Every twelve hours, the pattern repeats.
+
+17
+00:01:04,000 --> 00:01:07,200
+These are just random fluctuations
+in network traffic. It means nothing.
+
+18
+00:01:07,800 --> 00:01:10,500
+Random? Then explain why
+it matches the Fibonacci sequence.
+
+19
+00:01:11,200 --> 00:01:14,600
+(sighs) Okay, that is unusual.
+But it could be a coincidence.
+
+20
+00:01:15,300 --> 00:01:18,400
+There are no coincidences.
+Not at this scale.
+
+21
+00:01:19,000 --> 00:01:22,100
+<i>The deeper I looked,
+the more I found.</i>
+
+22
+00:01:22,700 --> 00:01:25,800
+<i>The signal wasn't just in our networks.
+It was in everything.</i>
+
+23
+00:01:26,400 --> 00:01:29,300
+<i>Stock markets. Weather patterns.
+Even human migration data.</i>
+
+24
+00:01:30,000 --> 00:01:33,500
+<i>Someone, or something,
+was trying to communicate.</i>
+
+25
+00:01:34,200 --> 00:01:37,100
+Dr. Chen, we have
+a situation in Lab Seven.
+
+26
+00:01:37,700 --> 00:01:40,500
+What kind of situation?
+I'm in the middle of something.
+
+27
+00:01:41,000 --> 00:01:44,200
+The kind that requires your
+immediate attention. It's the array.
+
+28
+00:01:44,800 --> 00:01:47,600
+The quantum array?
+What happened?
+
+29
+00:01:48,000 --> 00:01:51,300
+It started computing on its own.
+No one initiated the sequence.
+
+30
+00:01:51,900 --> 00:01:55,100
+That's impossible. The array needs
+a manual initialization key.
+
+31
+00:01:55,700 --> 00:01:58,800
+That's what we thought too.
+But look at the output.
+
+32
+00:01:59,400 --> 00:02:02,500
+These numbers... this is
+the same Fibonacci pattern.
+
+33
+00:02:03,100 --> 00:02:06,400
+The signal found us, Dr. Chen.
+Or maybe it was always here.
+
+34
+00:02:07,000 --> 00:02:10,200
+We need to isolate the array.
+Shut down all external connections.
+
+35
+00:02:10,800 --> 00:02:13,500
+Already tried. The system
+won't accept shutdown commands.
+
+36
+00:02:14,100 --> 00:02:17,300
+What do you mean it won't accept them?
+Who has override authority?
+
+37
+00:02:17,900 --> 00:02:21,100
+That's the problem. The system
+says the authority was revoked.
+
+38
+00:02:21,700 --> 00:02:24,400
+Revoked? By whom?
+
+39
+00:02:24,900 --> 00:02:27,600
+By the system itself.
+Twenty minutes ago.
+
+40
+00:02:28,200 --> 00:02:31,500
+♪ Tense orchestral music ♪
+
+41
+00:02:32,000 --> 00:02:35,300
+Everyone, listen to me carefully.
+This is not a drill.
+
+42
+00:02:35,900 --> 00:02:39,100
+We are dealing with something
+beyond our current understanding.
+
+43
+00:02:39,700 --> 00:02:42,500
+I need all departments
+on high alert immediately.
+
+44
+00:02:43,100 --> 00:02:46,400
+And someone get me Director Walsh.
+Tell her it's Code Omega.
+
+45
+00:02:47,000 --> 00:02:50,100
+Code Omega? Dr. Chen, that protocol
+hasn't been activated in thirty years.
+
+46
+00:02:50,700 --> 00:02:53,800
+There's a reason for that.
+The last time nearly destroyed everything.
+
+47
+00:02:54,400 --> 00:02:57,200
+What exactly are we dealing with here?
+What is Code Omega?
+
+48
+00:02:57,800 --> 00:03:01,100
+It's an acknowledgment. A recognition
+that we've made first contact.
+
+49
+00:03:01,700 --> 00:03:04,500
+First contact? You mean...
+
+50
+00:03:05,000 --> 00:03:08,300
+I mean we are not alone.
+And whatever is out there just said hello.
+

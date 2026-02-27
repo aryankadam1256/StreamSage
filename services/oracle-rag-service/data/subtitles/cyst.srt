@@ -1,0 +1,115 @@
+1
+00:02:36,923 --> 00:02:42,923
+Cyst is a horror, science fiction, comedy film directed by Tyler Russell.
+
+2
+00:05:13,846 --> 00:05:19,846
+In the 1960s, a nurse's last day on her job is ruined when a doctor
+inadvertently creates a cyst monster that terrorizes the office.
+
+3
+00:07:50,769 --> 00:07:56,769
+Patricia, played by Eva Habermann.
+
+4
+00:10:27,692 --> 00:10:33,692
+Dr. Guy, played by George Hardy.
+
+5
+00:13:04,615 --> 00:13:10,615
+Bill, played by Greg Sestero.
+
+6
+00:15:41,538 --> 00:15:47,538
+Al, played by Jason Douglas.
+
+7
+00:18:18,461 --> 00:18:24,461
+Mr. Sherman, played by Gene Jones.
+
+8
+00:20:55,384 --> 00:21:01,384
+Preston, played by Darren Ewing.
+
+9
+00:23:32,307 --> 00:23:38,307
+Tarlov cysts, also known as perineural cysts, are cerebrospinal fluid (CSF)-filled lesions that most commonly develop in the
+sacral region of the spinal canal (S1–S5), and less frequently in the cervical, thoracic, or lumbar spine.
+
+10
+00:26:09,230 --> 00:26:15,230
+These cysts form as dilations of the nerve root sheath near the dorsal root ganglion,
+specifically within the perineural space between the endoneurium and perineurium.
+
+11
+00:28:46,153 --> 00:28:52,153
+A defining feature is that the cyst walls contain nerve fibers,
+which often line the inner cavity of the cyst itself.
+
+12
+00:31:23,076 --> 00:31:29,076
+This involvement of neural elements distinguishes Tarlov cysts from other extradural
+meningeal cysts, such as meningeal diverticula, which do not contain nerve fibers.
+
+13
+00:34:00,000 --> 00:34:06,000
+The etiology of these cysts is not well understood; some current theories explaining this phenomenon include increased spinal fluid
+pressure, filling of congenital cysts with one-way valves, and/or inflammation in response to trauma and disease.
+
+14
+00:36:36,923 --> 00:36:42,923
+They are named after an American neurosurgeon Isadore
+Tarlov, who described them in 1938.
+
+15
+00:39:13,846 --> 00:39:19,846
+These cysts are often detected incidentally during MRI or
+CT scans for other medical conditions.
+
+16
+00:41:50,769 --> 00:41:56,769
+They are also observed using magnetic resonance neurography with
+communicating subarachnoid cysts of the spinal meninges.
+
+17
+00:44:27,692 --> 00:44:33,692
+Cysts with diameters of 1cm or larger are more likely to be symptomatic; although
+cysts of any size may be symptomatic dependent on location and etiology.
+
+18
+00:47:04,615 --> 00:47:10,615
+Some 40% of patients with symptomatic Tarlov cysts can
+associate a history of trauma or childbirth.
+
+19
+00:49:41,538 --> 00:49:47,538
+Current treatment options include CSF aspiration, Aspiration and Fibrin Glue Injection (AFGI),
+laminectomy with wrapping of the cyst, among other surgical treatment approaches.
+
+20
+00:52:18,461 --> 00:52:24,461
+Interventional treatment of Tarlov cysts is the only means by which symptoms might
+permanently be resolved due to the fact that the cysts often refill after aspiration.
+
+21
+00:54:55,384 --> 00:55:01,384
+Tarlov cysts often enlarge over time, especially if
+the sac has a check valve type opening.
+
+22
+00:57:32,307 --> 00:57:38,307
+They are differentiated from other meningeal and arachnoid cysts because they are innervated
+and diagnosis can in cases be demonstrated with subarachnoid communication.
+
+23
+01:00:09,230 --> 01:00:15,230
+Tarlov perineural cysts have occasionally been observed in patients with connective tissue
+disorders such as Marfan syndrome, Ehlers–Danlos syndrome, and Loeys–Dietz syndrome.
+
+24
+01:02:46,153 --> 01:02:52,153
+The film explores themes of monster, mad doctor, schlock, surgery gone wrong.
+
+25
+01:05:23,076 --> 01:05:29,076
+The tone is lighthearted and dark and thought_provoking.

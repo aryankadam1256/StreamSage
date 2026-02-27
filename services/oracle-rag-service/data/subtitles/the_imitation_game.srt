@@ -1,0 +1,95 @@
+1
+00:05:08,181 --> 00:05:14,181
+The true enigma was the man who cracked the code.
+
+2
+00:10:16,363 --> 00:10:22,363
+The Imitation Game is a history, drama, thriller film directed by Morten Tyldum.
+
+3
+00:15:24,545 --> 00:15:30,545
+Based on the real life story of legendary cryptanalyst Alan Turing, the film portrays the nail-biting race against time by Turing and his brilliant team
+of code-breakers at Britain's top-secret Government Code and Cypher School at Bletchley Park, during the darkest days of World War II.
+
+4
+00:20:32,727 --> 00:20:38,727
+Alan Turing, played by Benedict Cumberbatch.
+
+5
+00:25:40,909 --> 00:25:46,909
+Joan Clarke, played by Keira Knightley.
+
+6
+00:30:49,090 --> 00:30:55,090
+Hugh Alexander, played by Matthew Goode.
+
+7
+00:35:57,272 --> 00:36:03,272
+Detective Robert Nock, played by Rory Kinnear.
+
+8
+00:41:05,454 --> 00:41:11,454
+John Cairncross, played by Allen Leech.
+
+9
+00:46:13,636 --> 00:46:19,636
+Peter Hilton, played by Matthew Beard.
+
+10
+00:51:21,818 --> 00:51:27,818
+The Imitation Game is a 2014 American biographical thriller film directed by Morten Tyldum and written
+by Graham Moore, based on the 1983 biography Alan Turing: The Enigma by Andrew Hodges.
+
+11
+00:56:30,000 --> 00:56:36,000
+The film's title quotes the name of the game cryptanalyst Alan Turing proposed for answering the question
+"Can machines think?", in his 1950 seminal paper "Computing Machinery and Intelligence".
+
+12
+01:01:38,181 --> 01:01:44,181
+The film stars Benedict Cumberbatch as Turing, who decrypted German
+intelligence messages for the British government during World War II.
+
+13
+01:06:46,363 --> 01:06:52,363
+Keira Knightley, Matthew Goode, Rory Kinnear, Charles Dance,
+and Mark Strong appear in supporting roles.
+
+14
+01:11:54,545 --> 01:12:00,545
+Following its premiere at the Telluride Film Festival on August 29, 2014, The Imitation Game was
+released theatrically in the United States by The Weinstein Company on November 14.
+
+15
+01:17:02,727 --> 01:17:08,727
+It grossed over $233 million worldwide on a $14 million production budget,
+making it the highest-grossing independent film of 2014.
+
+16
+01:22:10,909 --> 01:22:16,909
+The film received critical acclaim but faced significant criticism for its historical
+inaccuracies, including depicting several events that had never taken place in real life.
+
+17
+01:27:19,090 --> 01:27:25,090
+It received eight nominations at the 87th Academy Awards (including
+Best Picture), winning for Best Adapted Screenplay.
+
+18
+01:32:27,272 --> 01:32:33,272
+It also received five nominations at the Golden Globes,
+three at the SAG Awards and nine at the BAFTAs.
+
+19
+01:37:35,454 --> 01:37:41,454
+Cumberbatch and Knightley's highly acclaimed performances were nominated for
+Best Actor and Best Supporting Actress respectively at each award.
+
+20
+01:42:43,636 --> 01:42:49,636
+The film explores themes of england, homophobia,
+world war ii, mathematician, genius.
+
+21
+01:47:51,818 --> 01:47:57,818
+The tone is dark and emotional and intense.

@@ -1,0 +1,46 @@
+1
+00:10:15,000 --> 00:10:21,000
+The Matrix Revisited is a documentary film directed by Josh Oreck.
+
+2
+00:20:30,000 --> 00:20:36,000
+The film goes behind the scenes of the 1999 sci-fi movie The Matrix.
+
+3
+00:30:45,000 --> 00:30:51,000
+Self - Neo, played by Keanu Reeves.
+
+4
+00:41:00,000 --> 00:41:06,000
+Self - Agent Smith, played by Hugo Weaving.
+
+5
+00:51:15,000 --> 00:51:21,000
+Self - Trinity, played by Carrie-Anne Moss.
+
+6
+01:01:30,000 --> 01:01:36,000
+Self - Morpheus, played by Laurence Fishburne.
+
+7
+01:11:45,000 --> 01:11:51,000
+Self - President, Worldwide Theatrical Production, Warner
+Bros., played by Lorenzo di Bonaventura.
+
+8
+01:22:00,000 --> 01:22:06,000
+Self - Producer, played by Joel Silver.
+
+9
+01:32:15,000 --> 01:32:21,000
+The Matrix Revisited is a 2001 American documentary film about
+the production of the 1999 film The Matrix.
+
+10
+01:42:30,000 --> 01:42:36,000
+It was released on DVD and VHS on November 20, 2001, by Warner Home Video.
+
+11
+01:52:45,000 --> 01:52:51,000
+The film explores themes of behind the scenes, fan
+culture, visual effect, making of.

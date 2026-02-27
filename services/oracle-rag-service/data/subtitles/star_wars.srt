@@ -1,0 +1,166 @@
+1
+00:03:16,216 --> 00:03:22,216
+A long time ago in a galaxy far, far away...
+
+2
+00:06:32,432 --> 00:06:38,432
+Star Wars is a adventure, action, science fiction film directed by George Lucas.
+
+3
+00:09:48,648 --> 00:09:54,648
+Princess Leia is captured and held hostage by the evil Imperial
+forces in their effort to take over the galactic Empire.
+
+4
+00:13:04,864 --> 00:13:10,864
+Venturesome Luke Skywalker and dashing captain Han Solo team together with the loveable robot duo R2-D2
+and C-3PO to rescue the beautiful princess and restore peace and justice in the Empire.
+
+5
+00:16:21,081 --> 00:16:27,081
+Luke Skywalker, played by Mark Hamill.
+
+6
+00:19:37,297 --> 00:19:43,297
+Han Solo, played by Harrison Ford.
+
+7
+00:22:53,513 --> 00:22:59,513
+Princess Leia Organa, played by Carrie Fisher.
+
+8
+00:26:09,729 --> 00:26:15,729
+Grand Moff Tarkin, played by Peter Cushing.
+
+9
+00:29:25,945 --> 00:29:31,945
+Obi-Wan "Ben" Kenobi, played by Alec Guinness.
+
+10
+00:32:42,162 --> 00:32:48,162
+C-3PO, played by Anthony Daniels.
+
+11
+00:35:58,378 --> 00:36:04,378
+Star Wars (later retitled Star Wars: Episode IV – A New Hope) is a 1977 American epic space
+opera film written and directed by George Lucas, produced by Lucasfilm Ltd.
+
+12
+00:39:14,594 --> 00:39:20,594
+and released by Twentieth Century-Fox.
+
+13
+00:42:30,810 --> 00:42:36,810
+It is the first film in the Star Wars franchise and the fourth
+chronological chapter of the "Skywalker Saga".
+
+14
+00:45:47,027 --> 00:45:53,027
+Set in a fictional galaxy under the rule of the tyrannical Galactic Empire, the film follows a resistance
+movement, called the Rebel Alliance, that aims to destroy the Empire's ultimate weapon, the Death Star.
+
+15
+00:49:03,243 --> 00:49:09,243
+When the rebel leader Princess Leia is captured by the Galactic Empire, Luke Skywalker acquires stolen architectural plans for the Death Star and
+sets out to rescue her while learning the ways of a metaphysical power known as "the Force" from the Jedi Master Obi-Wan Kenobi.
+
+16
+00:52:19,459 --> 00:52:25,459
+The cast includes Mark Hamill, Harrison Ford, Carrie Fisher, Peter Cushing, Alec Guinness,
+Anthony Daniels, Kenny Baker, Peter Mayhew, David Prowse, and James Earl Jones.
+
+17
+00:55:35,675 --> 00:55:41,675
+Lucas had the idea for a science fiction film in the vein of Flash Gordon around the time he completed his first film,
+THX 1138 (1971), and he began working on a treatment after the release of American Graffiti (1973).
+
+18
+00:58:51,891 --> 00:58:57,891
+After numerous rewrites, principal photography began in March of 1976 in locations
+including Tunisia and Elstree Studios in Hertfordshire, England.
+
+19
+01:02:08,108 --> 01:02:14,108
+Lucas formed the visual effects company Industrial Light &
+Magic to help create the film's visual effects.
+
+20
+01:05:24,324 --> 01:05:30,324
+Star Wars suffered production difficulties: the cast and crew believed the film
+would be a failure, and it went $3 million over budget due to delays.
+
+21
+01:08:40,540 --> 01:08:46,540
+Few were confident in the film's box office prospects.
+
+22
+01:11:56,756 --> 01:12:02,756
+It was released in a small number of theaters in the United States on May 25, 1977, and quickly
+became a surprise blockbuster, leading to it being expanded to a much wider release.
+
+23
+01:15:12,972 --> 01:15:18,972
+Star Wars opened to critical acclaim, with
+particular praise for its special effects.
+
+24
+01:18:29,189 --> 01:18:35,189
+It grossed $410 million worldwide during its initial run, surpassing Jaws (1975)
+to become the highest-grossing film until the release of E.T.
+
+25
+01:21:45,405 --> 01:21:51,405
+the Extra-Terrestrial (1982); subsequent releases have
+brought its total gross to $775 million.
+
+26
+01:25:01,621 --> 01:25:07,621
+When adjusted for inflation, Star Wars is the second-highest-grossing film in North America
+(behind Gone with the Wind) and the fourth-highest-grossing film of all time.
+
+27
+01:28:17,837 --> 01:28:23,837
+It received six Academy Awards, two BAFTA Awards, and
+thirteen Saturn Awards, among others.
+
+28
+01:31:34,054 --> 01:31:40,054
+The film has been reissued many times with Lucas' support, including the 1981 reissue giving
+the film the subtitle Episode IV – A New Hope, and the 1997 "Special Edition".
+
+29
+01:34:50,270 --> 01:34:56,270
+The reissues have contained many changes, including new
+scenes, visual effects, and dialogue.
+
+30
+01:38:06,486 --> 01:38:12,486
+Often regarded as one of the greatest and most influential films of all time, Star Wars quickly became a worldwide pop culture phenomenon, launching an
+industry of tie-in products, including novels, comics, video games, amusement park attractions and merchandise such as toys, games, and clothing.
+
+31
+01:41:22,702 --> 01:41:28,702
+It became one of the first 25 films selected by the United States Library of Congress for
+preservation in the National Film Registry in 1989, and its soundtrack was added to the U.S.
+
+32
+01:44:38,918 --> 01:44:44,918
+National Recording Registry in 2004.
+
+33
+01:47:55,135 --> 01:48:01,135
+The Empire Strikes Back (1980) and Return of the Jedi (1983) followed
+Star Wars, rounding out the original Star Wars trilogy.
+
+34
+01:51:11,351 --> 01:51:17,351
+A prequel trilogy and a sequel trilogy have since been released, in
+addition to two standalone films and various television series.
+
+35
+01:54:27,567 --> 01:54:33,567
+The film explores themes of empire, galaxy, rebellion, android, hermit.
+
+36
+01:57:43,783 --> 01:57:49,783
+The tone is thought_provoking.

@@ -1,0 +1,72 @@
+1
+00:06:00,000 --> 00:06:06,000
+We need a wave of change.
+
+2
+00:12:00,000 --> 00:12:06,000
+A Plastic Ocean is a documentary film directed by Craig Leeson.
+
+3
+00:18:00,000 --> 00:18:06,000
+A documentary focused on plastic pollution in the world's oceans.
+
+4
+00:24:00,000 --> 00:24:06,000
+Himself, played by Craig Leeson.
+
+5
+00:30:00,000 --> 00:30:06,000
+Herself, played by Tanya Streeter.
+
+6
+00:36:00,000 --> 00:36:06,000
+The Ocean Cleanup is a nonprofit environmental engineering organization based in the Netherlands that develops and deploys
+technology to extract plastic pollution from the oceans and to capture it in rivers before it can reach the ocean.
+
+7
+00:42:00,000 --> 00:42:06,000
+Their initial focus was on the Pacific Ocean and its garbage patch, and extended to
+rivers in countries including Indonesia, Guatemala, and the United States.
+
+8
+00:48:00,000 --> 00:48:06,000
+The Ocean Cleanup was founded in 2013 by Boyan Slat, a
+Dutch inventor who serves as its CEO.
+
+9
+00:54:00,000 --> 00:54:06,000
+It develops both ocean and river based catch systems.
+
+10
+01:00:00,000 --> 01:00:06,000
+Its ocean system consists of a funnel shaped floating
+barrier which is towed by two ships.
+
+11
+01:06:00,000 --> 01:06:06,000
+The ocean system is deployed in oceanic gyres to collect marine debris.
+
+12
+01:12:00,000 --> 01:12:06,000
+The project aims to launch 10 or more approximately 2 km-long (1.2 mi) systems which they predict could
+remove 50% of the debris in the Great Pacific Garbage Patch five years from deployment.
+
+13
+01:18:00,000 --> 01:18:06,000
+The river system consists of a variety of floating barriers and extraction
+systems which are anchored within rivers or at rivermouths.
+
+14
+01:24:00,000 --> 01:24:06,000
+The Ocean Cleanup also publishes scientific papers, and estimates that "1% of worlds rivers
+(~1,000 rivers) are responsible for 80% of the pollution in the world's seas".
+
+15
+01:30:00,000 --> 01:30:06,000
+They aim to deploy their river systems in these 1,000 rivers.
+
+16
+01:36:00,000 --> 01:36:06,000
+As of January 2026, the organization has removed over 50 million kilograms (50,000
+metric tons)
+of trash from rivers and the Great Pacific Garbage Patch.

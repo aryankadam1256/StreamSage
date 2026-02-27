@@ -1,0 +1,59 @@
+1
+00:06:00,000 --> 00:06:06,000
+Danger Is Rising!
+
+2
+00:12:00,000 --> 00:12:06,000
+Megalodon is a action, science fiction, horror film directed by James Thomas.
+
+3
+00:18:00,000 --> 00:18:06,000
+A military vessel on the search for an unidentified submersible finds themselves face to face with a giant
+shark, forced to use only what they have on board to defend themselves from the monstrous beast.
+
+4
+00:24:00,000 --> 00:24:06,000
+Admiral King, played by Michael Madsen.
+
+5
+00:30:00,000 --> 00:30:06,000
+Jameson, played by Scott C. Roe.
+
+6
+00:36:00,000 --> 00:36:06,000
+Captain Ivanov, played by Ego Mikitas.
+
+7
+00:42:00,000 --> 00:42:06,000
+Cheng, played by Paulina Nguyen.
+
+8
+00:48:00,000 --> 00:48:06,000
+Captain Streeper, played by Dominic Pace.
+
+9
+00:54:00,000 --> 00:54:06,000
+Yana Popov, played by Aimee Stolte.
+
+10
+01:00:00,000 --> 01:00:06,000
+The Asylum is an American independent film company and distributor that
+focuses on producing low-budget, direct-to-video films.
+
+11
+01:06:00,000 --> 01:06:06,000
+The company has produced titles that capitalize on productions by major studios, often using film titles
+and scripts very similar to those of current blockbusters in order to lure customers.
+
+12
+01:12:00,000 --> 01:12:06,000
+These titles have been dubbed "mockbusters" by the press.
+
+13
+01:18:00,000 --> 01:18:06,000
+The film explores themes of monster, submarine, shark
+attack, prehistoric creature, creature.
+
+14
+01:24:00,000 --> 01:24:06,000
+The tone is dark and thought_provoking.

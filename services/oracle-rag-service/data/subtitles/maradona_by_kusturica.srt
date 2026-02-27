@@ -1,0 +1,33 @@
+1
+00:10:00,000 --> 00:10:06,000
+Maradona by Kusturica is a documentary film directed by Emir Kusturica.
+
+2
+00:20:00,000 --> 00:20:06,000
+A documentary on Argentinean soccer star Diego Maradona, regarded
+by many as the world's greatest modern player.
+
+3
+00:30:00,000 --> 00:30:06,000
+Self, played by Diego Maradona.
+
+4
+00:40:00,000 --> 00:40:06,000
+Self, played by Manu Chao.
+
+5
+00:50:00,000 --> 00:50:06,000
+Self, played by Emir Kusturica.
+
+6
+01:00:00,000 --> 01:00:06,000
+Maradona by Kusturica is a documentary on the life of Argentine footballer Diego
+Maradona, directed by the award-winning Serbian filmmaker Emir Kusturica.
+
+7
+01:10:00,000 --> 01:10:06,000
+The documentary premiered at the Cannes Film Festival 2008.
+
+8
+01:20:00,000 --> 01:20:06,000
+The film explores themes of sports, football (soccer), football (soccer) player.

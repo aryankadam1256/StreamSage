@@ -1,11 +1,14 @@
 # =============================================================================
 # Oracle RAG Service - Dockerfile
 # =============================================================================
-# Multi-stage build for optimized container size
-# 
-# Why Python 3.11-slim?
-# - Slim variant reduces image size (~150MB vs ~1GB for full)
-# - Python 3.11 has significant performance improvements (10-60% faster)
+# Subtitle-based movie Q&A using RAG (ChromaDB + Ollama)
+# Multi-stage build for optimized container size (~500MB vs ~2GB)
+#
+# Modes:
+#   Full RAG: Retrieval + Ollama LLM generation (requires Ollama service)
+#   Retrieval-only: Graceful degradation when Ollama is unavailable
+#
+# Build: docker build -t streamsage-oracle .
 # =============================================================================
 
 FROM python:3.11-slim as builder
@@ -47,13 +50,13 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 # Create directories for data persistence
-RUN mkdir -p /app/data/chromadb /app/data/subtitles
+RUN mkdir -p /app/data/chromadb /app/data/subtitles /app/data/processed
 
 # Expose port
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Run the application

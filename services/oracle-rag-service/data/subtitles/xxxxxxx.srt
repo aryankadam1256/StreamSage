@@ -1,0 +1,43 @@
+1
+00:01:10,909 --> 00:01:16,909
+XXXXXXX is a documentary film directed by Liliana Colombo.
+
+2
+00:02:21,818 --> 00:02:27,818
+A tarot card reading as a starting point.
+
+3
+00:03:32,727 --> 00:03:38,727
+A disruptive relationship as a point.
+
+4
+00:04:43,636 --> 00:04:49,636
+Translation of the cards' symbols to a joint.
+
+5
+00:05:54,545 --> 00:06:00,545
+Of the domestic exploration for finding my voice.
+
+6
+00:07:05,454 --> 00:07:11,454
+A fuzzy control system is a control system based on fuzzy logic – a mathematical system that analyzes analog input values in terms of  logical variables that take on
+continuous values between 0 and 1, in contrast to classical or digital logic, which operates on discrete values of either 1 or 0 (true or false, respectively).
+
+7
+00:08:16,363 --> 00:08:22,363
+Fuzzy logic is widely used in machine control.
+
+8
+00:09:27,272 --> 00:09:33,272
+The term  "fuzzy" refers to the fact that the logic involved can deal with concepts that
+cannot be expressed as the "true" or "false" but rather as "partially true".
+
+9
+00:10:38,181 --> 00:10:44,181
+Although alternative approaches such as genetic algorithms and neural networks can perform just as well as fuzzy logic in many cases, fuzzy logic has the advantage that the
+solution to the problem can be cast in terms that human operators can understand, such that that their experience can be used in the design of the controller.
+
+10
+00:11:49,090 --> 00:11:55,090
+This makes it easier to mechanize tasks that are
+already successfully performed by humans.

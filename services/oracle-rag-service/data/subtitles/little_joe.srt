@@ -1,0 +1,59 @@
+1
+00:07:04,000 --> 00:07:10,000
+Happiness is a business
+
+2
+00:14:08,000 --> 00:14:14,000
+Little Joe is a drama, science fiction film directed by Jessica Hausner.
+
+3
+00:21:12,000 --> 00:21:18,000
+Alice, a single mother who is more dedicated to her work as a genetic engineer than to her teenage son Joe, develops a new variety
+of flower that is supposed to have the ability to make its owner happy thanks to its special chemical properties.
+
+4
+00:28:16,000 --> 00:28:22,000
+Alice, played by Emily Beecham.
+
+5
+00:35:20,000 --> 00:35:26,000
+Chris, played by Ben Whishaw.
+
+6
+00:42:24,000 --> 00:42:30,000
+Bella, played by Kerry Fox.
+
+7
+00:49:28,000 --> 00:49:34,000
+Joe, played by Kit Connor.
+
+8
+00:56:32,000 --> 00:56:38,000
+Karl, played by David Wilmot.
+
+9
+01:03:36,000 --> 01:03:42,000
+Ric, played by Phénix Brossard.
+
+10
+01:10:40,000 --> 01:10:46,000
+Little Joe is a 2019 drama film co-written and directed by Jessica Hausner.
+
+11
+01:17:44,000 --> 01:17:50,000
+Starring Emily Beecham as Alice Woodard, a plant breeder and single mother who
+creates "Little Joe", a plant that gives its caretakers joy.
+
+12
+01:24:48,000 --> 01:24:54,000
+The film had its world premiere at the main competition of the 2019 Cannes
+Film Festival, where Beecham won the Best Actress award.
+
+13
+01:31:52,000 --> 01:31:58,000
+The film explores themes of co-workers relationship, genetic
+engineering, woman director, mother son relationship.
+
+14
+01:38:56,000 --> 01:39:02,000
+The tone is emotional and thought_provoking.

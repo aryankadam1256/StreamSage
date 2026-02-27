@@ -1,0 +1,69 @@
+1
+00:05:49,411 --> 00:05:55,411
+With one switch, everything changes.
+
+2
+00:11:38,823 --> 00:11:44,823
+Particle Fever is a documentary film directed by Mark Levinson.
+
+3
+00:17:28,235 --> 00:17:34,235
+As the Large Hadron Collider is about to be launched for the first time, physicists are on the cusp
+of the greatest scientific discovery of all time - or perhaps their greatest failure.
+
+4
+00:23:17,647 --> 00:23:23,647
+Self, played by Martin Aleksa.
+
+5
+00:29:07,058 --> 00:29:13,058
+Self, played by Nima Arkani-Hamed.
+
+6
+00:34:56,470 --> 00:35:02,470
+Self, played by Savas Dimopoulos.
+
+7
+00:40:45,882 --> 00:40:51,882
+Self, played by Monica Dunford.
+
+8
+00:46:35,294 --> 00:46:41,294
+Self, played by Fabiola Gianotti.
+
+9
+00:52:24,705 --> 00:52:30,705
+Self, played by David Kaplan.
+
+10
+00:58:14,117 --> 00:58:20,117
+Particle Fever is a 2013 American documentary film tracking the first round of
+experiments at the Large Hadron Collider (LHC) near Geneva, Switzerland.
+
+11
+01:04:03,529 --> 01:04:09,529
+The film follows the experimental physicists at the European Organization for Nuclear Research (CERN) who run the
+experiments, as well as the theoretical physicists who attempt to provide a conceptual framework for the LHC's results.
+
+12
+01:09:52,941 --> 01:09:58,941
+The film begins in 2008 with the first firing of the LHC and concludes in
+2012 with the successful identification of the Higgs boson.
+
+13
+01:15:42,352 --> 01:15:48,352
+The Communication Awards of the National Academies of Sciences, Engineering, and Medicine awarded a $20,000 prize for excellence in
+communicating science to the general public in Film/Radio/TV to David Kaplan and Mark Levinson for "Particle Fever" on October 14, 2015.
+
+14
+01:21:31,764 --> 01:21:37,764
+The awards are given to individuals in four categories: books, film/radio/TV,
+magazine/newspaper and online, and are supported by the W.
+
+15
+01:27:21,176 --> 01:27:27,176
+Keck Foundation.
+
+16
+01:33:10,588 --> 01:33:16,588
+The film explores themes of physics, supersymetry, cern, higgs boson.

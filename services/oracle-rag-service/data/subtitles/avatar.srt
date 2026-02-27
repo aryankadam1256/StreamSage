@@ -1,0 +1,148 @@
+1
+00:04:54,545 --> 00:05:00,545
+Enter the world of Pandora.
+
+2
+00:09:49,090 --> 00:09:55,090
+Avatar is a action, adventure, fantasy film directed by James Cameron.
+
+3
+00:14:43,636 --> 00:14:49,636
+In the 22nd century, a paraplegic Marine is dispatched to the moon Pandora on a unique mission,
+but becomes torn between following orders and protecting an alien civilization.
+
+4
+00:19:38,181 --> 00:19:44,181
+Jake Sully, played by Sam Worthington.
+
+5
+00:24:32,727 --> 00:24:38,727
+Neytiri, played by Zoe Saldaña.
+
+6
+00:29:27,272 --> 00:29:33,272
+Dr. Grace Augustine, played by Sigourney Weaver.
+
+7
+00:34:21,818 --> 00:34:27,818
+Colonel Miles Quaritch, played by Stephen Lang.
+
+8
+00:39:16,363 --> 00:39:22,363
+Trudy Chacon, played by Michelle Rodriguez.
+
+9
+00:44:10,909 --> 00:44:16,909
+Parker Selfridge, played by Giovanni Ribisi.
+
+10
+00:49:05,454 --> 00:49:11,454
+Avatar is a 2009 epic science fiction film
+written and directed by James Cameron.
+
+11
+00:54:00,000 --> 00:54:06,000
+It features an ensemble cast including Sam Worthington, Zoe Saldana,
+Stephen Lang, Michelle Rodriguez, and Sigourney Weaver.
+
+12
+00:58:54,545 --> 00:59:00,545
+It is the first in the Avatar film series.
+
+13
+01:03:49,090 --> 01:03:55,090
+It is set in the mid-22nd century, when humans are colonizing Pandora, a lush habitable moon, in
+order to mine the valuable unobtanium, a room-temperature superconductor mineral.
+
+14
+01:08:43,636 --> 01:08:49,636
+The expansion of the mining colony threatens the existence of a local
+tribe of Na'vi, a humanoid species indigenous to Pandora.
+
+15
+01:13:38,181 --> 01:13:44,181
+The title of the film refers to an "avatar", which is a genetically engineered Na'vi body remotely
+operated from the brain of a human, and which is used to interact with the Na'vi.
+
+16
+01:18:32,727 --> 01:18:38,727
+Development of Avatar began in 1994, when Cameron
+wrote an 80-page treatment for the film.
+
+17
+01:23:27,272 --> 01:23:33,272
+Filming was due to take place after the completion of Cameron's 1997 film Titanic, for a planned release in 1999; however,
+according to Cameron, the necessary technology was not yet available to achieve his vision of the film.
+
+18
+01:28:21,818 --> 01:28:27,818
+Work on the fictional constructed language of the Na'vi began in 2005, and Cameron
+began developing the screenplay and fictional universe in early 2006.
+
+19
+01:33:16,363 --> 01:33:22,363
+Avatar was budgeted at $237 million, due to the groundbreaking array of new visual
+effects Cameron achieved in cooperation with Weta Digital in Wellington.
+
+20
+01:38:10,909 --> 01:38:16,909
+Some estimates put the cost at between $280 million and $310 million
+for production, and at $150 million for promotion.
+
+21
+01:43:05,454 --> 01:43:11,454
+The film made extensive use of 3D computer graphics and new motion capture filming
+techniques, and reunited Cameron with his Titanic co-producer Jon Landau.
+
+22
+01:48:00,000 --> 01:48:06,000
+Avatar premiered at the Odeon Leicester Square theater in London on December 10, 2009,
+and was released in the United States on December 18 by 20th Century Fox.
+
+23
+01:52:54,545 --> 01:53:00,545
+The film received positive reviews from critics, who praised its groundbreaking
+visual effects, though the plot received criticism for being derivative.
+
+24
+01:57:49,090 --> 01:57:55,090
+The film broke several box office records, including becoming the
+highest-grossing film of all time, surpassing Titanic.
+
+25
+02:02:43,636 --> 02:02:49,636
+It also became the first film to gross more than $2 billion, and was the
+best-selling video title of 2010 in the United States.
+
+26
+02:07:38,181 --> 02:07:44,181
+Adjusted for inflation, Avatar grossed around $4 billion, making it the
+second-highest-grossing film of all time, behind Gone with the Wind (1939).
+
+27
+02:12:32,727 --> 02:12:38,727
+Avatar was nominated for nine awards at the 82nd Academy Awards,
+winning three, and received numerous other accolades.
+
+28
+02:17:27,272 --> 02:17:33,272
+The success of the film led to an increase in popularity of 3D films, and
+to electronics manufacturers releasing 3D televisions.
+
+29
+02:22:21,818 --> 02:22:27,818
+Avatar was followed by the sequels Avatar: The Way of
+Water (2022) and Avatar: Fire and Ash (2025).
+
+30
+02:27:16,363 --> 02:27:22,363
+Two more sequels in the Avatar franchise are currently in development.
+
+31
+02:32:10,909 --> 02:32:16,909
+The film explores themes of paraplegic, attachment to
+nature, culture clash, indigenous, space travel.
+
+32
+02:37:05,454 --> 02:37:11,454
+The tone is thought_provoking.

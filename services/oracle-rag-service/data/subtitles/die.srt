@@ -1,0 +1,60 @@
+1
+00:06:04,000 --> 00:06:10,000
+Die is a thriller, mystery film directed by Dominic James.
+
+2
+00:12:08,000 --> 00:12:14,000
+Six people, each of them is on the road to self-destruction.
+
+3
+00:18:12,000 --> 00:18:18,000
+They wake up in cells in a surreal facility, without
+knowing how they got there or why.
+
+4
+00:24:16,000 --> 00:24:22,000
+Lisa, played by Emily Hampshire.
+
+5
+00:30:20,000 --> 00:30:26,000
+Mark Murdock, played by Elias Koteas.
+
+6
+00:36:24,000 --> 00:36:30,000
+Jacob, played by John Pyper-Ferguson.
+
+7
+00:42:28,000 --> 00:42:34,000
+Sofia Valenti, played by Caterina Murino.
+
+8
+00:48:32,000 --> 00:48:38,000
+Diane Robinson, played by Patricia McKenzie.
+
+9
+00:54:36,000 --> 00:54:42,000
+Zach Emmett, played by Karl Pruner.
+
+10
+01:00:40,000 --> 01:00:46,000
+Die Hard is an American action film series and media franchise that
+originated with Roderick Thorp's 1979 novel Nothing Lasts Forever.
+
+11
+01:06:44,000 --> 01:06:50,000
+All five films revolve around the main character of John McClane (Joe Leland in the original novel), a police detective who
+continually finds himself in the middle of a crisis where he is both the only hope against disaster and the culprit's target.
+
+12
+01:12:48,000 --> 01:12:54,000
+Per the franchise's name, McClane confounds repeated attempts to kill him, driving
+his enemies to distraction, by adding up and exploiting dumb luck.
+
+13
+01:18:52,000 --> 01:18:58,000
+The films have grossed a combined $1.4 billion worldwide, with Bruce
+Willis as the only actor to appear in all five films.
+
+14
+01:24:56,000 --> 01:25:02,000
+The tone is intense and mind_bending.

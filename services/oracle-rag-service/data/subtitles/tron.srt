@@ -1,0 +1,139 @@
+1
+00:03:03,870 --> 00:03:09,870
+A world inside the computer where man has never been. Never before now.
+
+2
+00:06:07,741 --> 00:06:13,741
+Tron is a science fiction, action, adventure film directed by Steven Lisberger.
+
+3
+00:09:11,612 --> 00:09:17,612
+When brilliant video game maker Flynn hacks the mainframe of his ex-employer, he is beamed inside
+an astonishing digital world and becomes part of the very game he is designing.
+
+4
+00:12:15,483 --> 00:12:21,483
+In his mission through cyberspace, Flynn matches wits with a maniacal Master Control Program and teams
+up with Tron, a security measure created to bring balance to the digital environment.
+
+5
+00:15:19,354 --> 00:15:25,354
+Kevin Flynn / Clu, played by Jeff Bridges.
+
+6
+00:18:23,225 --> 00:18:29,225
+Alan Bradley / Tron, played by Bruce Boxleitner.
+
+7
+00:21:27,096 --> 00:21:33,096
+Ed Dillinger / Sark, played by David Warner.
+
+8
+00:24:30,967 --> 00:24:36,967
+Lora / Yori, played by Cindy Morgan.
+
+9
+00:27:34,838 --> 00:27:40,838
+Dr. Walter Gibbs / Dumont, played by Barnard Hughes.
+
+10
+00:30:38,709 --> 00:30:44,709
+Ram, played by Dan Shor.
+
+11
+00:33:42,580 --> 00:33:48,580
+Tron is a 1982 American science fiction action adventure film written and directed
+by Steven Lisberger from a story he co-wrote with Bonnie MacBird.
+
+12
+00:36:46,451 --> 00:36:52,451
+The film stars Jeff Bridges as Kevin Flynn, a computer programmer and video game developer who is transported inside the
+software world of a mainframe computer where he interacts with anthropomorphic programs in his attempt to escape.
+
+13
+00:39:50,322 --> 00:39:56,322
+It also stars Bruce Boxleitner (in the eponymous role),
+David Warner, Cindy Morgan, and Barnard Hughes.
+
+14
+00:42:54,193 --> 00:43:00,193
+Tron was one of cinema's earliest films to use
+extensive computer-generated imagery (CGI).
+
+15
+00:45:58,064 --> 00:46:04,064
+The inspiration for Tron dates back to 1976, when Lisberger
+became intrigued with video games after seeing Pong.
+
+16
+00:49:01,935 --> 00:49:07,935
+He and producer Donald Kushner set up an animation studio to develop
+Tron with the intention of making it an animated film.
+
+17
+00:52:05,806 --> 00:52:11,806
+To promote the studio itself, Lisberger and his team created a 30-second
+animation featuring the first appearance of the title character.
+
+18
+00:55:09,677 --> 00:55:15,677
+Eventually, Lisberger decided to include live-action elements with both
+backlit and computer animation for the actual feature-length film.
+
+19
+00:58:13,548 --> 00:58:19,548
+Various studios had rejected the storyboards for the film before Walt
+Disney Productions agreed to finance and distribute Tron.
+
+20
+01:01:17,419 --> 01:01:23,419
+There, backlit animation was finally combined with the 2D
+computer animation and the live-action footage.
+
+21
+01:04:21,290 --> 01:04:27,290
+Tron was released on July 9, 1982.
+
+22
+01:07:25,161 --> 01:07:31,161
+The film was a moderate success at the box office, and received mixed reviews from critics, who praised
+its groundbreaking visuals and acting but criticized its storyline as being incoherent.
+
+23
+01:10:29,032 --> 01:10:35,032
+Tron received nominations for Best Costume Design by Elois Jenssen and Rosanna Norton and Best
+Sound by Michael, Bob, and Lee Minkler and Jim La Rue at the 55th Academy Awards.
+
+24
+01:13:32,903 --> 01:13:38,903
+It was however disqualified from the Best Visual Effects category because at the time the Academy of
+Motion Picture Arts and Sciences felt that using computer animation was "cheating".
+
+25
+01:16:36,774 --> 01:16:42,774
+Tron spawned multiple video games (including an arcade tie-in released shortly after the film)
+and, as it became a cult film, a multimedia franchise including comic books.
+
+26
+01:19:40,645 --> 01:19:46,645
+A sequel titled Tron: Legacy, directed by Joseph Kosinski, was released in 2010, with
+Bridges and Boxleitner reprising their roles and Lisberger acting as producer.
+
+27
+01:22:44,516 --> 01:22:50,516
+A commercial success, it was followed by the Disney XD animated
+series Tron: Uprising in 2012, set between the two films.
+
+28
+01:25:48,387 --> 01:25:54,387
+A third installment, Tron: Ares, was released on October 10, 2025, and also
+featured the continued involvement of Bridges and Lisberger.
+
+29
+01:28:52,258 --> 01:28:58,258
+The film explores themes of hacker, virtual reality,
+dystopia, simulation, super computer.
+
+30
+01:31:56,129 --> 01:32:02,129
+The tone is thought_provoking.
