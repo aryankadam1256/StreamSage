@@ -38,7 +38,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 
 # =============================================================================
@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 ORACLE_SERVICE_URL = os.getenv("ORACLE_SERVICE_URL", "http://localhost:8001")
 BINGE_SERVICE_URL = os.getenv("BINGE_SERVICE_URL", "http://localhost:8002")
 SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8003")
+MOVIE_ASSISTANT_SERVICE_URL = os.getenv("MOVIE_ASSISTANT_SERVICE_URL", "http://localhost:8004")
 
 # Timeout for service calls
 SERVICE_TIMEOUT = 30.0
@@ -70,6 +71,7 @@ app = FastAPI(
     - 🔮 **Oracle RAG Service**: Movie dialogue Q&A
     - 📊 **Binge Predictor**: Watch pattern analysis
     - 💬 **Sentiment Analyzer**: Review sentiment detection
+    - 🎬 **Movie Assistant**: Fine-tuned Llama 3 movie discovery
     
     ## Architecture Benefits
     
@@ -129,6 +131,7 @@ async def health_check():
             ("oracle", f"{ORACLE_SERVICE_URL}/health"),
             ("binge", f"{BINGE_SERVICE_URL}/health"),
             ("sentiment", f"{SENTIMENT_SERVICE_URL}/health"),
+            ("movie_assistant", f"{MOVIE_ASSISTANT_SERVICE_URL}/health"),
         ]
         
         for service_name, url in services:
@@ -199,6 +202,63 @@ async def oracle_collections():
             return response.json()
         except Exception as e:
             logger.error(f"Failed to get collections: {e}")
+            raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.post("/api/v1/oracle/ask/stream", tags=["Oracle"])
+async def oracle_ask_stream(request: Request):
+    """
+    🔮 Streaming version of Oracle /ask via Server-Sent Events.
+
+    Proxies the SSE stream from the Oracle service directly to the client.
+    Uses httpx streaming mode so tokens flow through without buffering.
+    The oracle service sends events in this format:
+        data: {"type": "sources", ...}
+        data: {"type": "token", "content": "..."}
+        data: {"type": "done", ...}
+    """
+    body = await request.body()
+
+    async def stream_proxy():
+        # Use a long timeout for streaming (LLM on CPU can take 60-180s for first token)
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{ORACLE_SERVICE_URL}/ask/stream",
+                    content=body,
+                    headers={"Content-Type": "application/json"},
+                ) as response:
+                    async for chunk in response.aiter_raw():
+                        if chunk:
+                            yield chunk
+            except Exception as e:
+                logger.error(f"Oracle stream proxy error: {e}")
+                error_event = f'data: {{"type":"error","message":"{str(e)}"}}\n\n'
+                yield error_event.encode()
+
+    return StreamingResponse(
+        stream_proxy(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/v1/oracle/suggestions/{movie_id}", tags=["Oracle"])
+async def oracle_suggestions(movie_id: str):
+    """Get dynamic suggested questions for a specific movie."""
+    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
+        try:
+            response = await client.get(
+                f"{ORACLE_SERVICE_URL}/suggestions/{movie_id}"
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Failed to get suggestions: {e}")
             raise HTTPException(status_code=503, detail=str(e))
 
 
@@ -380,6 +440,71 @@ async def composite_movie_analysis(request: Request):
         )
     
     return results
+
+
+# =============================================================================
+# Movie Assistant Routes
+# =============================================================================
+
+@app.post("/api/v1/discover", tags=["Movie Assistant"])
+async def movie_discover(request: Request):
+    """
+    🎬 Discover movies with the fine-tuned Llama 3 assistant.
+
+    Forwards request to Movie Assistant Service (RAG + fine-tuned LLM).
+    """
+    body = await request.json()
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.post(
+                f"{MOVIE_ASSISTANT_SERVICE_URL}/discover",
+                json=body
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Movie assistant error: {e}")
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=f"Movie assistant error: {e.response.text}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to reach Movie assistant: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"Movie assistant unavailable: {str(e)}"
+            )
+
+
+@app.get("/api/v1/discover/metrics", tags=["Movie Assistant"])
+async def movie_assistant_metrics():
+    """Get inference performance metrics from Movie Assistant."""
+    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
+        try:
+            response = await client.get(f"{MOVIE_ASSISTANT_SERVICE_URL}/inference-metrics")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/v1/model-info", tags=["Movie Assistant"])
+async def model_info():
+    """Get current model/backend info from Movie Assistant."""
+    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
+        try:
+            response = await client.get(f"{MOVIE_ASSISTANT_SERVICE_URL}/health")
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "llm_model": data.get("llm_model", "unknown"),
+                "inference_backend": data.get("inference_backend", "unknown"),
+                "total_movies": data.get("total_movies", 0),
+                "status": data.get("status", "unknown"),
+            }
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=str(e))
 
 
 # =============================================================================
