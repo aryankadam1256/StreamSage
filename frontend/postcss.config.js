@@ -1,3 +1,6 @@
 export default {
-    files: ['./src/**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+        tailwindcss: {},
+        autoprefixer: {},
+    },
 }
