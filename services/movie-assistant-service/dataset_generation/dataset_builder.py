@@ -1,6 +1,14 @@
 """
 Dataset Builder
 Orchestrates the creation of instruction-response pairs for fine-tuning.
+
+KEY CONCEPTS:
+- Inverted Index: We build genre_index, actor_index, etc. for O(1) lookups
+  instead of scanning all 4800+ movies for every query. Same concept as
+  database indexing or search engine inverted indices.
+- Stratified Sampling: We ensure diverse query type distribution (25% similarity,
+  20% cast/crew, etc.) so the model learns all query patterns equally.
+- Data Quality Gates: Every generated example passes validation before inclusion.
 """
 
 import json
@@ -73,6 +81,63 @@ class DatasetBuilder:
         
         logger.info(f"Indexed {len(self.movies_list)} movies")
         logger.info(f"Genres: {len(self.genre_index)}, Actors: {len(self.actor_index)}, Directors: {len(self.director_index)}")
+
+    @staticmethod
+    def _deduplicate_movies(movies: List[Dict]) -> List[Dict]:
+        """
+        Remove duplicate movies from a list, preserving order.
+
+        WHY: Even with weighted sampling without replacement, duplicates can
+        sneak in from different code paths (e.g., _get_similar_movies can
+        return a movie that was also in the genre_index results).
+
+        HOW: Use a set to track seen movie IDs. Sets have O(1) lookup.
+        We preserve insertion order (first occurrence wins).
+
+        INTERVIEW TIP: This is the classic "remove duplicates while preserving
+        order" problem. The set-based approach is O(n) time, O(n) space.
+        """
+        seen_ids = set()
+        unique_movies = []
+        for movie in movies:
+            movie_id = movie.get("id")
+            if movie_id not in seen_ids:
+                seen_ids.add(movie_id)
+                unique_movies.append(movie)
+        return unique_movies
+
+    @staticmethod
+    def _validate_example(example: Dict) -> bool:
+        """
+        Quality gate: check if a generated training example meets minimum standards.
+
+        WHY: Low-quality training examples hurt model performance more than
+        having fewer examples. A model trained on 2000 clean examples will
+        outperform one trained on 4000 noisy examples. This is well-documented
+        in the "Data-Centric AI" movement led by Andrew Ng.
+
+        Checks:
+        1. Response must have enough content (not just an opening line)
+        2. Must have at least 2 movie recommendations
+        3. Response must be at least 100 characters
+        """
+        output = example.get("output", "")
+        instruction = example.get("instruction", "")
+
+        # Check minimum lengths
+        if len(output) < 100:
+            return False
+        if len(instruction) < 5:
+            return False
+
+        # Check that we have at least 2 numbered recommendations
+        # Count lines starting with "1.", "2.", etc.
+        rec_count = sum(1 for line in output.split('\n') if line.strip()[:2] in
+                       ["1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9."])
+        if rec_count < 2:
+            return False
+
+        return True
     
     def _get_similar_movies(self, source_movie: Dict, count: int = 5) -> List[Dict]:
         """Get similar movies based on genres, mood, and TMDB recommendations."""
@@ -122,21 +187,52 @@ class DatasetBuilder:
         return [movie for _, movie in candidates[:count]]
     
     def _select_random_movies(self, candidates: List[Dict], count: int) -> List[Dict]:
-        """Randomly select movies from candidates, weighted by popularity."""
+        """
+        Randomly select unique movies from candidates, weighted by popularity.
+
+        WHY we changed from random.choices() to manual weighted sampling:
+        - random.choices() samples WITH REPLACEMENT (same movie can appear twice)
+        - random.sample() doesn't support weights
+        - So we implement weighted sampling WITHOUT replacement manually
+
+        HOW it works:
+        1. Assign each movie a weight based on popularity
+        2. Pick one movie proportional to its weight
+        3. Remove it from the pool (so it can't be picked again)
+        4. Repeat until we have enough movies
+
+        This is called "Weighted Reservoir Sampling" - an interview favorite!
+        """
         if len(candidates) <= count:
             return candidates
-        
-        # Weight by popularity score
+
+        # Weight by popularity score (higher = more likely to be selected)
         weights = [movie.get("popularity_score", 0.5) for movie in candidates]
-        
-        # Normalize weights
-        total_weight = sum(weights)
-        if total_weight > 0:
-            weights = [w / total_weight for w in weights]
-        else:
-            weights = [1.0 / len(candidates)] * len(candidates)
-        
-        selected = random.choices(candidates, weights=weights, k=count)
+
+        # Weighted sampling WITHOUT replacement
+        selected = []
+        remaining = list(range(len(candidates)))  # indices into candidates
+        remaining_weights = list(weights)
+
+        for _ in range(count):
+            if not remaining:
+                break
+
+            # Normalize remaining weights to probabilities
+            total_weight = sum(remaining_weights)
+            if total_weight <= 0:
+                # Fallback: uniform random if all weights are zero
+                idx_in_remaining = random.randint(0, len(remaining) - 1)
+            else:
+                probs = [w / total_weight for w in remaining_weights]
+                # Pick one index based on probability distribution
+                idx_in_remaining = random.choices(range(len(remaining)), weights=probs, k=1)[0]
+
+            # Add selected movie and remove from pool
+            selected.append(candidates[remaining[idx_in_remaining]])
+            remaining.pop(idx_in_remaining)
+            remaining_weights.pop(idx_in_remaining)
+
         return selected
     
     def generate_similarity_examples(self, num_examples: int) -> List[Dict]:
@@ -151,9 +247,10 @@ class DatasetBuilder:
         for source_movie in source_movies[:num_examples]:
             # Generate query
             query = QueryTemplates.get_similarity_query(source_movie["title"])
-            
-            # Get similar movies
+
+            # Get similar movies (dedup to avoid same movie via different score paths)
             similar_movies = self._get_similar_movies(source_movie, count=random.randint(3, 5))
+            similar_movies = self._deduplicate_movies(similar_movies)
             
             if not similar_movies:
                 continue
@@ -493,9 +590,17 @@ class DatasetBuilder:
         
         # Shuffle
         random.shuffle(all_examples)
-        
-        logger.info(f"=== Dataset Built: {len(all_examples)} total examples ===")
-        return all_examples
+
+        # Quality gate: filter out low-quality examples
+        quality_examples = [ex for ex in all_examples if self._validate_example(ex)]
+        rejected_count = len(all_examples) - len(quality_examples)
+        if rejected_count > 0:
+            logger.warning(f"Quality filter rejected {rejected_count} examples "
+                          f"({rejected_count/len(all_examples)*100:.1f}%)")
+
+        logger.info(f"=== Dataset Built: {len(quality_examples)} quality examples "
+                    f"(from {len(all_examples)} generated) ===")
+        return quality_examples
     
     def split_dataset(self, examples: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         """Split dataset into train, validation, and test sets."""

@@ -1,10 +1,30 @@
 """
 Response Generator
 Generates natural language responses with movie recommendations.
+
+KEY CONCEPT - Why Good Training Data Descriptions Matter:
+When we fine-tune an LLM, the model learns to MIMIC our response patterns.
+If our training data has truncated garbage like "Dr" or "E", the model will
+learn to generate similarly broken responses. This is called "garbage in,
+garbage out" - the #1 rule of ML/Data Science.
+
+Changes made:
+- Smart sentence splitting that handles abbreviations (Dr., Mr., U.S., etc.)
+- Minimum description length enforcement (20 chars)
+- Fallback to genre+year description when overview is too short
 """
 
+import re
 import random
 from typing import List, Dict, Optional
+
+# Common abbreviations that should NOT be treated as sentence endings
+# This prevents "Dr." from being split as end-of-sentence
+ABBREVIATIONS = {
+    "dr", "mr", "mrs", "ms", "jr", "sr", "st", "vs", "etc", "inc",
+    "ltd", "corp", "prof", "gen", "sgt", "pvt", "cpl", "lt", "col",
+    "u.s", "u.k", "l.a", "n.y", "p.m", "a.m",
+}
 
 
 class ResponseGenerator:
@@ -77,58 +97,121 @@ class ResponseGenerator:
             return f"{hours}h {mins}m"
     
     @staticmethod
+    def _extract_first_sentence(text: str, max_length: int = 150) -> str:
+        """
+        Extract the first meaningful sentence from a movie overview.
+
+        WHY this is needed:
+        The naive approach `text.split('.')[0]` breaks on abbreviations:
+        - "Dr. Strange discovers..." → "Dr" (BROKEN)
+        - "E.T. the Extra-Terrestrial..." → "E" (BROKEN)
+        - "In 1945. Berlin falls..." → "In 1945" (OK but too short)
+
+        HOW this works:
+        1. Use regex to find sentence boundaries: ". " followed by uppercase letter
+        2. Skip matches where the word before the period is a known abbreviation
+        3. Enforce a minimum length of 20 characters
+        4. If still too short, fall back to max_length truncation at word boundary
+
+        INTERVIEW TIP: This is a classic NLP preprocessing problem.
+        Production systems use spaCy's sentence segmenter or NLTK's punkt tokenizer.
+        We use regex here to avoid adding heavy dependencies.
+        """
+        if not text or len(text) < 20:
+            return text or ""
+
+        # Pattern: period/exclamation/question mark, followed by space and uppercase
+        # This catches real sentence boundaries while skipping abbreviations
+        sentence_end_pattern = re.compile(r'([.!?])\s+([A-Z])')
+
+        best_split = ""
+        for match in sentence_end_pattern.finditer(text):
+            pos = match.start() + 1  # position right after the punctuation
+
+            # Check if the word before the period is an abbreviation
+            before_period = text[:match.start()].rstrip().rsplit(None, 1)
+            if before_period:
+                last_word = before_period[-1].lower().rstrip('.')
+                if last_word in ABBREVIATIONS:
+                    continue  # Skip this - it's an abbreviation, not sentence end
+
+            candidate = text[:pos].strip()
+
+            # Must be at least 20 chars to be a meaningful sentence
+            if len(candidate) >= 20:
+                best_split = candidate
+                break  # Take the first valid sentence
+
+        # If we found a good sentence, use it
+        if best_split and len(best_split) <= max_length:
+            return best_split
+
+        # Fallback: truncate at word boundary near max_length
+        if len(text) <= max_length:
+            return text
+
+        truncated = text[:max_length].rsplit(' ', 1)[0]
+        return truncated + "..."
+
+    @staticmethod
     def get_movie_description(movie: Dict, query_context: Optional[str] = None) -> str:
-        """Generate a brief description for a movie recommendation."""
+        """
+        Generate a brief description for a movie recommendation.
+
+        This is what appears in our training data, so quality here directly
+        impacts model output quality.
+        """
         title = movie.get("title", "Unknown")
         year = movie.get("release_year", "")
         runtime = movie.get("runtime", 0)
         genres = movie.get("genres", [])
         overview = movie.get("overview", "")
         mood_tags = movie.get("mood_tags", [])
-        director = movie.get("director", {})
-        
+
         # Format basic info
         runtime_str = ResponseGenerator.format_runtime(runtime) if runtime else ""
         year_str = f"({year})" if year else ""
-        
+
         # Create description parts
         parts = []
-        
+
         # Add genre if available
         if genres:
             genre_str = genres[0] if len(genres) == 1 else f"{genres[0]}/{genres[1]}"
             parts.append(genre_str)
-        
+
         # Add runtime
         if runtime_str:
             parts.append(runtime_str)
-        
-        # Create brief description from overview (first sentence or ~100 chars)
+
+        # Create brief description from overview using smart extraction
+        brief = ""
         if overview:
-            # Get first sentence or truncate
-            first_sentence = overview.split('.')[0]
-            if len(first_sentence) > 120:
-                brief = overview[:100].rsplit(' ', 1)[0] + "..."
-            else:
-                brief = first_sentence
-        else:
-            brief = ""
-        
+            brief = ResponseGenerator._extract_first_sentence(overview)
+
+            # Quality gate: if the extracted sentence is too short, it's garbage
+            if len(brief) < 20:
+                # Fallback: use a longer truncation
+                if len(overview) > 20:
+                    brief = overview[:120].rsplit(' ', 1)[0] + "..."
+                else:
+                    brief = ""
+
         # Add mood/style context if relevant
-        context_parts = []
         if mood_tags and query_context in ["mood", "complex"]:
-            context_parts.append(mood_tags[0])
-        
+            if not brief:
+                brief = f"A {mood_tags[0]} film"
+
         # Format the full description
         info_str = " - ".join(parts) if parts else ""
-        
+
         # Combine everything
         description = f"**{title}** {year_str}"
         if info_str:
             description += f" - {info_str}"
         if brief:
             description += f"\n   {brief}"
-        
+
         return description
     
     @staticmethod

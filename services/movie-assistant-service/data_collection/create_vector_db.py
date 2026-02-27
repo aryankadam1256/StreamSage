@@ -134,7 +134,7 @@ def main():
     documents = []
     metadatas = []
     
-    batch_size = 5
+    batch_size = 25
     # DEBUG: Slice for testing
     movies_items = list(movies_data.items())[:5]
     total_movies = len(movies_items)
