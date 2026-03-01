@@ -51,3 +51,30 @@ yarn-error.log*
 
 # Large Data Files
 **/data/raw/
+
+# ChromaDB binary data & sqlite (can be hundreds of MB)
+**/chroma.sqlite3
+**/chroma_db/*.bin
+**/chroma_db/*.pickle
+**/chromadb/*.bin
+**/chromadb/*.pickle
+
+# Subtitle SRT files under service data directories (large corpus)
+services/oracle-rag-service/data/subtitles/*.srt
+
+# Temp / debug output files
+tmpclaude-*-cwd
+nul
+*.txt.bak
+tmp_*.json
+spidey_test.json
+test_100*.json
+test_comprehensive*.json
+debug_query.py
+query_analysis.txt
+service_log.txt
+service_r*.txt
+test_100_r*.txt
+test_p4_run.py
+test_queries.py
+test_comprehensive.py
