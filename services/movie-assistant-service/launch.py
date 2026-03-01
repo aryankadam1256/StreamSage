@@ -5,7 +5,7 @@ import sys
 
 os.environ["INFERENCE_BACKEND"] = "local"
 os.environ["LOCAL_MODEL_PATH"] = r"c:\Users\mailp\StreamSage\services\movie-assistant-service\fine_tuning\outputs\final_model"
-os.environ["HF_API_TOKEN"] = "hf_your_token_here"
+os.environ["HF_API_TOKEN"] = os.getenv("HF_API_TOKEN", "")  # Set via .env or environment
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 os.chdir(r"c:\Users\mailp\StreamSage\services\movie-assistant-service")

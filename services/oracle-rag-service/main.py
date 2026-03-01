@@ -567,30 +567,17 @@ def build_rag_prompt(
     context = "\n\n".join(context_lines)
 
     # Intent-specific suffix — guides the LLM's response style per query type
-    if already_watched:
-        suffix_map = {
-            "quote_search": "Share the most memorable dialogue from this film with context about its significance.",
-            "scene_finding": "Describe this scene and its importance to the overall story.",
-            "theme_analysis": "Analyze this theme across the entire film, including how it resolves.",
-            "character_query": "Discuss this character's full arc, motivations, and ultimate fate.",
-            "plot_question": "Explain the full story context, including twists and the ending if relevant.",
-            "prediction_request": "Answer fully — the viewer has seen the whole film. Discuss what actually happened.",
-            "mood_reaction": "Engage with the viewer's reflection on the completed film experience.",
-            "timestamp_query": "Describe this scene and its significance in the context of the full film.",
-            "general": "Answer conversationally, drawing on both the excerpts and your knowledge of the full film.",
-        }
-    else:
-        suffix_map = {
-            "quote_search": "Share the most relevant dialogue with brief context. No timestamps.",
-            "scene_finding": "Describe what's happening in this moment based on the excerpts. Don't reveal what comes after.",
-            "theme_analysis": "Discuss the themes visible so far. Quote key dialogue. Tease deeper layers without specifics.",
-            "character_query": "Describe this character based on what the viewer has seen — their words, actions, and relationships so far. Don't reveal their arc beyond the excerpts.",
-            "plot_question": "Explain clearly what has happened based on the excerpts. If the viewer seems confused, help clarify. Don't reveal anything beyond what's shown.",
-            "prediction_request": "Do NOT reveal what happens next. Deflect warmly and build excitement: 'No spoilers! Keep watching...'",
-            "mood_reaction": "Engage with the viewer's emotional reaction. Validate their feelings and connect it to what's happening in the story so far.",
-            "timestamp_query": "Describe what's happening at this point. Only reference events up to this moment.",
-            "general": "Answer conversationally based only on the excerpts. Quote dialogue when helpful. End with an excitement-building teaser.",
-        }
+    suffix_map = {
+        "quote_search": "Share the most relevant dialogue with brief context. No timestamps.",
+        "scene_finding": "Describe what's happening in this moment based on the excerpts. Don't reveal what comes after.",
+        "theme_analysis": "Discuss the themes visible so far. Quote key dialogue. Tease deeper layers without specifics.",
+        "character_query": "Describe this character based on what the viewer has seen — their words, actions, and relationships so far. Don't reveal their arc beyond the excerpts.",
+        "plot_question": "Explain clearly what has happened based on the excerpts. If the viewer seems confused, help clarify. Don't reveal anything beyond what's shown.",
+        "prediction_request": "Do NOT reveal what happens next. Deflect warmly and build excitement: 'No spoilers! Keep watching...'",
+        "mood_reaction": "Engage with the viewer's emotional reaction. Validate their feelings and connect it to what's happening in the story so far.",
+        "timestamp_query": "Describe what's happening at this point. Only reference events up to this moment.",
+        "general": "Answer conversationally based only on the excerpts. Quote dialogue when helpful. End with an excitement-building teaser.",
+    }
     suffix = suffix_map.get(intent, suffix_map["general"])
 
     # Build conversation history block (last 3 turns)
