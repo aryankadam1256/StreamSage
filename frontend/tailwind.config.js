@@ -28,6 +28,7 @@ export default {
             fontFamily: {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
                 mono: ['Fira Code', 'monospace'],
+                jakarta: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
             },
             boxShadow: {
                 'card': '0 2px 12px rgba(0,0,0,0.7)',
