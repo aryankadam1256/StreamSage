@@ -2,11 +2,12 @@ import { useState } from 'react'
 import Header from './components/Header'
 import HomePage from './pages/HomePage'
 import MovieDetailPage from './pages/MovieDetailPage'
+import LandingPage from './pages/LandingPage'
 import ClickSpark from './components/ui/ClickSpark'
 import { discoverMovies } from './api'
 
 function App() {
-    const [currentPage, setCurrentPage] = useState('home')
+    const [currentPage, setCurrentPage] = useState('landing')
     const [selectedMovie, setSelectedMovie] = useState(null)
     const [searchState, setSearchState] = useState({
         query: '', results: null, llmAnswer: null, loading: false, error: null, metrics: null,
@@ -32,6 +33,11 @@ function App() {
 
     const handleMovieClick = (movie) => { setSelectedMovie(movie); setCurrentPage('detail'); window.scrollTo(0, 0) }
     const handleNavigateHome = () => { setCurrentPage('home'); setSelectedMovie(null) }
+    const handleEnterApp = () => { setCurrentPage('home'); window.scrollTo(0, 0) }
+
+    if (currentPage === 'landing') {
+        return <LandingPage onEnterApp={handleEnterApp} />
+    }
 
     return (
         <ClickSpark sparkColor="#d4a017" sparkCount={8} sparkSize={10} duration={600}>
