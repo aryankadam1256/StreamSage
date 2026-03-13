@@ -9,7 +9,23 @@
 
 ---
 
-## Local Development Setup
+## One-Command Startup (Windows)
+
+For Windows users, you can start everything with a single command:
+
+```bash
+SETUP_AND_RUN.bat
+```
+
+This script will:
+1. Check for required dependencies (Python, Node.js)
+2. Install Python and npm packages
+3. Start all services in separate terminal windows
+4. Open the frontend in your default browser
+
+---
+
+## Local Development Setup (Manual)
 
 This is the recommended way to run StreamSage for development. You will start three processes: the Movie Assistant service, the API Gateway, and the React frontend.
 
@@ -70,6 +86,8 @@ The frontend runs on **http://localhost:3000** with hot reload.
 ### Step 5 — Open the app
 
 Go to **http://localhost:3000** in your browser.
+
+You'll see the **StreamSage landing page**. Click "Start Discovering" to enter the movie discovery interface.
 
 Try these example queries:
 - `Quentin Tarantino movies`

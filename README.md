@@ -23,7 +23,7 @@ StreamSage is an educational project that teaches five AI/ML concepts through bu
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    FRONTEND  (React + Vite)                   │
-│         SearchHero │ MovieGrid │ OracleChat │ VibeBar          │
+│   LandingPage │ MovieDiscover │ OracleChat │ VibeBar │ Binge  │
 └──────────────────────────┬───────────────────────────────────┘
                            │  http://localhost:3000
                            ▼
@@ -118,6 +118,15 @@ StreamSage/
 ├── docker-compose.yml
 ├── README.md
 ├── QUICKSTART.md
+├── SETUP_AND_RUN.bat              # One-command startup (Windows)
+│
+├── docs/                              # Project documentation
+│   ├── README.md                      # Documentation index
+│   ├── ARCHITECTURE.md                # System design & data flows
+│   ├── TECH_STACK.md                  # Technologies reference
+│   ├── INTERVIEW_GUIDE.md             # Interview Q&A preparation
+│   └── development-history/
+│       └── PROJECT_PHASES.md          # Git commits by project phase
 │
 ├── frontend/                          # React 18 + Vite + Tailwind CSS
 │   ├── src/
@@ -129,10 +138,12 @@ StreamSage/
 │   │   │   ├── LLMAnswerBanner.jsx    # LLM narrative response
 │   │   │   ├── OracleChat.jsx         # Movie Q&A interface
 │   │   │   ├── VibeBar.jsx            # Sentiment visualization
+│   │   │   ├── BingeGauge.jsx         # Binge probability visualization
 │   │   │   └── Header.jsx             # Navigation
 │   │   ├── pages/
-│   │   │   ├── HomePage.jsx
-│   │   │   └── MovieDetailPage.jsx
+│   │   │   ├── LandingPage.jsx        # Premium landing page (default view)
+│   │   │   ├── HomePage.jsx           # Main app home
+│   │   │   └── MovieDetailPage.jsx    # Individual movie details
 │   │   └── api.js                     # Axios API client
 │   └── package.json
 │
