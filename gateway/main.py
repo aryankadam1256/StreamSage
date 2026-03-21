@@ -34,6 +34,7 @@ Trade-offs:
 
 import os
 import logging
+import asyncio
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
@@ -56,6 +57,48 @@ MOVIE_ASSISTANT_SERVICE_URL = os.getenv("MOVIE_ASSISTANT_SERVICE_URL", "http://l
 
 # Timeout for service calls
 SERVICE_TIMEOUT = 30.0
+HEALTH_TIMEOUT = 5.0
+ORACLE_STREAM_TIMEOUT = 300.0
+MOVIE_DISCOVER_TIMEOUT = 60.0
+
+# Retry policy for transient network issues.
+GATEWAY_GET_RETRIES = int(os.getenv("GATEWAY_GET_RETRIES", "2"))
+GATEWAY_POST_RETRIES = int(os.getenv("GATEWAY_POST_RETRIES", "1"))
+GATEWAY_RETRY_BACKOFF_MS = int(os.getenv("GATEWAY_RETRY_BACKOFF_MS", "120"))
+
+
+_gateway_client: httpx.AsyncClient | None = None
+
+
+def _get_gateway_client() -> httpx.AsyncClient:
+    if _gateway_client is None:
+        raise HTTPException(status_code=503, detail="Gateway HTTP client not initialized")
+    return _gateway_client
+
+
+async def _request_with_retry(
+    method: str,
+    url: str,
+    *,
+    retries: int,
+    timeout: float,
+    **kwargs,
+) -> httpx.Response:
+    client = _get_gateway_client()
+    last_exc: Exception | None = None
+
+    for attempt in range(retries):
+        try:
+            return await client.request(method, url, timeout=timeout, **kwargs)
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteError, httpx.RemoteProtocolError, httpx.PoolTimeout) as exc:
+            last_exc = exc
+            if attempt == retries - 1:
+                break
+            backoff_s = (GATEWAY_RETRY_BACKOFF_MS / 1000.0) * (attempt + 1)
+            await asyncio.sleep(backoff_s)
+
+    assert last_exc is not None
+    raise last_exc
 
 
 # =============================================================================
@@ -99,6 +142,30 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize a single shared HTTP client with connection pooling."""
+    global _gateway_client
+
+    limits = httpx.Limits(
+        max_connections=int(os.getenv("GATEWAY_MAX_CONNECTIONS", "120")),
+        max_keepalive_connections=int(os.getenv("GATEWAY_MAX_KEEPALIVE", "40")),
+        keepalive_expiry=float(os.getenv("GATEWAY_KEEPALIVE_EXPIRY", "30.0")),
+    )
+    _gateway_client = httpx.AsyncClient(limits=limits)
+    logger.info("Gateway HTTP client initialized with pooled connections")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close shared HTTP client on shutdown."""
+    global _gateway_client
+    if _gateway_client is not None:
+        await _gateway_client.aclose()
+        _gateway_client = None
+        logger.info("Gateway HTTP client closed")
+
+
 # =============================================================================
 # Health Check
 # =============================================================================
@@ -126,26 +193,29 @@ async def health_check():
     }
     
     # Check each service
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        services = [
-            ("oracle", f"{ORACLE_SERVICE_URL}/health"),
-            ("binge", f"{BINGE_SERVICE_URL}/health"),
-            ("sentiment", f"{SENTIMENT_SERVICE_URL}/health"),
-            ("movie_assistant", f"{MOVIE_ASSISTANT_SERVICE_URL}/health"),
-        ]
-        
-        for service_name, url in services:
-            try:
-                resp = await client.get(url)
-                health_status["services"][service_name] = {
-                    "status": "healthy" if resp.status_code == 200 else "degraded",
-                    "response_time_ms": resp.elapsed.total_seconds() * 1000
-                }
-            except Exception as e:
-                health_status["services"][service_name] = {
-                    "status": "unhealthy",
-                    "error": str(e)
-                }
+    services = [
+        ("oracle", f"{ORACLE_SERVICE_URL}/health"),
+        ("binge", f"{BINGE_SERVICE_URL}/health"),
+        ("sentiment", f"{SENTIMENT_SERVICE_URL}/health"),
+        ("movie_assistant", f"{MOVIE_ASSISTANT_SERVICE_URL}/health"),
+    ]
+
+    for service_name, url in services:
+        try:
+            resp = await _request_with_retry(
+                "GET",
+                url,
+                retries=GATEWAY_GET_RETRIES,
+                timeout=HEALTH_TIMEOUT,
+            )
+            health_status["services"][service_name] = {
+                "status": "healthy" if resp.status_code == 200 else "degraded",
+            }
+        except Exception as e:
+            health_status["services"][service_name] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
     
     # Overall status
     all_healthy = all(
@@ -170,39 +240,45 @@ async def oracle_ask(request: Request):
     """
     body = await request.json()
     
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.post(
-                f"{ORACLE_SERVICE_URL}/ask",
-                json=body
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Oracle service error: {e}")
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Oracle service error: {e.response.text}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to reach Oracle service: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Oracle service unavailable: {str(e)}"
-            )
+    try:
+        response = await _request_with_retry(
+            "POST",
+            f"{ORACLE_SERVICE_URL}/ask",
+            json=body,
+            retries=GATEWAY_POST_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Oracle service error: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Oracle service error: {e.response.text}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to reach Oracle service: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Oracle service unavailable: {str(e)}"
+        )
 
 
 @app.get("/api/v1/oracle/collections", tags=["Oracle"])
 async def oracle_collections():
     """List available movie collections in Oracle."""
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.get(f"{ORACLE_SERVICE_URL}/collections")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Failed to get collections: {e}")
-            raise HTTPException(status_code=503, detail=str(e))
+    try:
+        response = await _request_with_retry(
+            "GET",
+            f"{ORACLE_SERVICE_URL}/collections",
+            retries=GATEWAY_GET_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error(f"Failed to get collections: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.post("/api/v1/oracle/ask/stream", tags=["Oracle"])
@@ -221,21 +297,22 @@ async def oracle_ask_stream(request: Request):
 
     async def stream_proxy():
         # Use a long timeout for streaming (LLM on CPU can take 60-180s for first token)
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            try:
-                async with client.stream(
-                    "POST",
-                    f"{ORACLE_SERVICE_URL}/ask/stream",
-                    content=body,
-                    headers={"Content-Type": "application/json"},
-                ) as response:
-                    async for chunk in response.aiter_raw():
-                        if chunk:
-                            yield chunk
-            except Exception as e:
-                logger.error(f"Oracle stream proxy error: {e}")
-                error_event = f'data: {{"type":"error","message":"{str(e)}"}}\n\n'
-                yield error_event.encode()
+        client = _get_gateway_client()
+        try:
+            async with client.stream(
+                "POST",
+                f"{ORACLE_SERVICE_URL}/ask/stream",
+                content=body,
+                headers={"Content-Type": "application/json"},
+                timeout=ORACLE_STREAM_TIMEOUT,
+            ) as response:
+                async for chunk in response.aiter_raw():
+                    if chunk:
+                        yield chunk
+        except Exception as e:
+            logger.error(f"Oracle stream proxy error: {e}")
+            error_event = f'data: {{"type":"error","message":"{str(e)}"}}\n\n'
+            yield error_event.encode()
 
     return StreamingResponse(
         stream_proxy(),
@@ -250,16 +327,18 @@ async def oracle_ask_stream(request: Request):
 @app.get("/api/v1/oracle/suggestions/{movie_id}", tags=["Oracle"])
 async def oracle_suggestions(movie_id: str):
     """Get dynamic suggested questions for a specific movie."""
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.get(
-                f"{ORACLE_SERVICE_URL}/suggestions/{movie_id}"
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Failed to get suggestions: {e}")
-            raise HTTPException(status_code=503, detail=str(e))
+    try:
+        response = await _request_with_retry(
+            "GET",
+            f"{ORACLE_SERVICE_URL}/suggestions/{movie_id}",
+            retries=GATEWAY_GET_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error(f"Failed to get suggestions: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 # =============================================================================
@@ -275,26 +354,28 @@ async def binge_predict(request: Request):
     """
     body = await request.json()
     
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.post(
-                f"{BINGE_SERVICE_URL}/predict",
-                json=body
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Binge service error: {e}")
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Binge service error: {e.response.text}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to reach Binge service: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Binge service unavailable: {str(e)}"
-            )
+    try:
+        response = await _request_with_retry(
+            "POST",
+            f"{BINGE_SERVICE_URL}/predict",
+            json=body,
+            retries=GATEWAY_POST_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Binge service error: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Binge service error: {e.response.text}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to reach Binge service: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Binge service unavailable: {str(e)}"
+        )
 
 
 # =============================================================================
@@ -310,44 +391,48 @@ async def sentiment_analyze(request: Request):
     """
     body = await request.json()
     
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.post(
-                f"{SENTIMENT_SERVICE_URL}/analyze",
-                json=body
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Sentiment service error: {e}")
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Sentiment service error: {e.response.text}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to reach Sentiment service: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Sentiment service unavailable: {str(e)}"
-            )
+    try:
+        response = await _request_with_retry(
+            "POST",
+            f"{SENTIMENT_SERVICE_URL}/analyze",
+            json=body,
+            retries=GATEWAY_POST_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Sentiment service error: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Sentiment service error: {e.response.text}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to reach Sentiment service: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Sentiment service unavailable: {str(e)}"
+        )
 
 
 @app.post("/api/v1/sentiment/batch", tags=["Sentiment"])
 async def sentiment_batch(request: Request):
     """Batch sentiment analysis."""
     body = await request.json()
-    
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.post(
-                f"{SENTIMENT_SERVICE_URL}/batch",
-                json=body
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Sentiment batch error: {e}")
-            raise HTTPException(status_code=503, detail=str(e))
+
+    try:
+        response = await _request_with_retry(
+            "POST",
+            f"{SENTIMENT_SERVICE_URL}/batch",
+            json=body,
+            retries=GATEWAY_POST_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error(f"Sentiment batch error: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 # =============================================================================
@@ -391,53 +476,59 @@ async def composite_movie_analysis(request: Request):
         "errors": []
     }
     
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        # Make parallel requests
-        import asyncio
+    # Make parallel requests
+    async def call_oracle():
+        if body.get("user_query"):
+            try:
+                resp = await _request_with_retry(
+                    "POST",
+                    f"{ORACLE_SERVICE_URL}/ask",
+                    json={"query": body["user_query"], "movie_id": body.get("movie_id")},
+                    retries=GATEWAY_POST_RETRIES,
+                    timeout=SERVICE_TIMEOUT,
+                )
+                results["oracle"] = resp.json()
+            except Exception as e:
+                results["errors"].append(f"Oracle: {str(e)}")
+
+    async def call_sentiment():
+        if body.get("review_text"):
+            try:
+                resp = await _request_with_retry(
+                    "POST",
+                    f"{SENTIMENT_SERVICE_URL}/analyze",
+                    json={"text": body["review_text"]},
+                    retries=GATEWAY_POST_RETRIES,
+                    timeout=SERVICE_TIMEOUT,
+                )
+                results["sentiment"] = resp.json()
+            except Exception as e:
+                results["errors"].append(f"Sentiment: {str(e)}")
+
+    async def call_binge():
+        if body.get("watch_history"):
+            try:
+                resp = await _request_with_retry(
+                    "POST",
+                    f"{BINGE_SERVICE_URL}/predict",
+                    json={
+                        "user_id": body.get("user_id", "unknown"),
+                        "watch_history": body["watch_history"]
+                    },
+                    retries=GATEWAY_POST_RETRIES,
+                    timeout=SERVICE_TIMEOUT,
+                )
+                results["binge"] = resp.json()
+            except Exception as e:
+                results["errors"].append(f"Binge: {str(e)}")
         
-        async def call_oracle():
-            if body.get("user_query"):
-                try:
-                    resp = await client.post(
-                        f"{ORACLE_SERVICE_URL}/ask",
-                        json={"query": body["user_query"], "movie_id": body.get("movie_id")}
-                    )
-                    results["oracle"] = resp.json()
-                except Exception as e:
-                    results["errors"].append(f"Oracle: {str(e)}")
-        
-        async def call_sentiment():
-            if body.get("review_text"):
-                try:
-                    resp = await client.post(
-                        f"{SENTIMENT_SERVICE_URL}/analyze",
-                        json={"text": body["review_text"]}
-                    )
-                    results["sentiment"] = resp.json()
-                except Exception as e:
-                    results["errors"].append(f"Sentiment: {str(e)}")
-        
-        async def call_binge():
-            if body.get("watch_history"):
-                try:
-                    resp = await client.post(
-                        f"{BINGE_SERVICE_URL}/predict",
-                        json={
-                            "user_id": body.get("user_id", "unknown"),
-                            "watch_history": body["watch_history"]
-                        }
-                    )
-                    results["binge"] = resp.json()
-                except Exception as e:
-                    results["errors"].append(f"Binge: {str(e)}")
-        
-        # Execute in parallel
-        await asyncio.gather(
-            call_oracle(),
-            call_sentiment(),
-            call_binge(),
-            return_exceptions=True
-        )
+    # Execute in parallel
+    await asyncio.gather(
+        call_oracle(),
+        call_sentiment(),
+        call_binge(),
+        return_exceptions=True
+    )
     
     return results
 
@@ -455,56 +546,66 @@ async def movie_discover(request: Request):
     """
     body = await request.json()
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
-            response = await client.post(
-                f"{MOVIE_ASSISTANT_SERVICE_URL}/discover",
-                json=body
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Movie assistant error: {e}")
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Movie assistant error: {e.response.text}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to reach Movie assistant: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail=f"Movie assistant unavailable: {str(e)}"
-            )
+    try:
+        response = await _request_with_retry(
+            "POST",
+            f"{MOVIE_ASSISTANT_SERVICE_URL}/discover",
+            json=body,
+            retries=GATEWAY_POST_RETRIES,
+            timeout=MOVIE_DISCOVER_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Movie assistant error: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Movie assistant error: {e.response.text}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to reach Movie assistant: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Movie assistant unavailable: {str(e)}"
+        )
 
 
 @app.get("/api/v1/discover/metrics", tags=["Movie Assistant"])
 async def movie_assistant_metrics():
     """Get inference performance metrics from Movie Assistant."""
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.get(f"{MOVIE_ASSISTANT_SERVICE_URL}/inference-metrics")
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=str(e))
+    try:
+        response = await _request_with_retry(
+            "GET",
+            f"{MOVIE_ASSISTANT_SERVICE_URL}/inference-metrics",
+            retries=GATEWAY_GET_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.get("/api/v1/model-info", tags=["Movie Assistant"])
 async def model_info():
     """Get current model/backend info from Movie Assistant."""
-    async with httpx.AsyncClient(timeout=SERVICE_TIMEOUT) as client:
-        try:
-            response = await client.get(f"{MOVIE_ASSISTANT_SERVICE_URL}/health")
-            response.raise_for_status()
-            data = response.json()
-            return {
-                "llm_model": data.get("llm_model", "unknown"),
-                "inference_backend": data.get("inference_backend", "unknown"),
-                "total_movies": data.get("total_movies", 0),
-                "status": data.get("status", "unknown"),
-            }
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=str(e))
+    try:
+        response = await _request_with_retry(
+            "GET",
+            f"{MOVIE_ASSISTANT_SERVICE_URL}/health",
+            retries=GATEWAY_GET_RETRIES,
+            timeout=SERVICE_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {
+            "llm_model": data.get("llm_model", "unknown"),
+            "inference_backend": data.get("inference_backend", "unknown"),
+            "total_movies": data.get("total_movies", 0),
+            "status": data.get("status", "unknown"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 # =============================================================================

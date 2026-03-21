@@ -42,6 +42,7 @@ import time
 import logging
 from typing import Optional, List, AsyncGenerator
 from contextlib import asynccontextmanager
+from collections import OrderedDict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,6 +69,56 @@ logger = logging.getLogger(__name__)
 # Environment variables
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3:8b")
+
+# Query embedding cache to reduce repeated embedding cost for common prompts.
+QUERY_EMBED_CACHE_SIZE = int(os.getenv("QUERY_EMBED_CACHE_SIZE", "512"))
+QUERY_EMBED_CACHE_TTL_S = int(os.getenv("QUERY_EMBED_CACHE_TTL_S", "600"))
+_query_embed_cache: OrderedDict[str, tuple[float, list[float]]] = OrderedDict()
+_query_embed_cache_hits = 0
+_query_embed_cache_misses = 0
+
+
+def _embedding_cache_key(query: str, movie_id: str) -> str:
+    # Movie id is part of the key to keep cache behavior aligned with scoped retrieval.
+    normalized = " ".join(query.strip().lower().split())
+    return f"{movie_id}:{normalized}"
+
+
+def _get_query_embedding_with_cache(
+    embedder: SubtitleEmbedder,
+    query: str,
+    movie_id: str,
+) -> list[float]:
+    global _query_embed_cache_hits, _query_embed_cache_misses
+
+    cache_key = _embedding_cache_key(query, movie_id)
+    now = time.time()
+    cached = _query_embed_cache.get(cache_key)
+    if cached:
+        ts, embedding = cached
+        if (now - ts) <= QUERY_EMBED_CACHE_TTL_S:
+            _query_embed_cache_hits += 1
+            _query_embed_cache.move_to_end(cache_key)
+            return embedding
+        _query_embed_cache.pop(cache_key, None)
+
+    _query_embed_cache_misses += 1
+    embedding = embedder.embed_texts([query])[0].tolist()
+    _query_embed_cache[cache_key] = (now, embedding)
+    _query_embed_cache.move_to_end(cache_key)
+
+    while len(_query_embed_cache) > QUERY_EMBED_CACHE_SIZE:
+        _query_embed_cache.popitem(last=False)
+
+    total = _query_embed_cache_hits + _query_embed_cache_misses
+    if total and (total % 100 == 0):
+        hit_rate = (_query_embed_cache_hits / total) * 100
+        logger.info(
+            f"Embedding cache: {len(_query_embed_cache)} entries | "
+            f"hit_rate={hit_rate:.1f}% ({_query_embed_cache_hits}/{total})"
+        )
+
+    return embedding
 
 
 # =============================================================================
@@ -304,8 +355,12 @@ def retrieve_chunks(
         List of dicts with keys: content, movie_id, timestamp_start,
         timestamp_end, relevance_score.
     """
+    t0 = time.time()
+
     # Step 1: Embed the query
-    query_embedding = embedder.embed_texts([query])[0].tolist()
+    t_embed = time.time()
+    query_embedding = _get_query_embedding_with_cache(embedder, query, movie_id)
+    embed_ms = (time.time() - t_embed) * 1000
 
     # Step 2: Search ChromaDB with movie_id filter
     # Retrieve more than top_k if we'll re-rank by timestamp
@@ -324,12 +379,14 @@ def retrieve_chunks(
         where_filter = {"movie_id": movie_id}
 
     try:
+        t_chroma = time.time()
         results = collection.query(
             query_embeddings=[query_embedding],
             where=where_filter,
             n_results=fetch_k,
             include=["documents", "metadatas", "distances"],
         )
+        chroma_ms = (time.time() - t_chroma) * 1000
     except Exception as e:
         logger.error(f"ChromaDB query failed: {e}")
         return []
@@ -356,8 +413,17 @@ def retrieve_chunks(
         })
 
     # Step 4: Re-rank by timestamp proximity if hint provided
+    rerank_ms = 0.0
     if timestamp_hint is not None and chunks:
+        t_rerank = time.time()
         chunks = _rerank_by_timestamp(chunks, timestamp_hint)
+        rerank_ms = (time.time() - t_rerank) * 1000
+
+    total_ms = (time.time() - t0) * 1000
+    logger.info(
+        f"Retrieval timing | embed={embed_ms:.1f}ms chroma={chroma_ms:.1f}ms "
+        f"rerank={rerank_ms:.1f}ms total={total_ms:.1f}ms fetch_k={fetch_k}"
+    )
 
     # Return top_k after potential re-ranking
     return chunks[:top_k]
@@ -470,19 +536,19 @@ def build_system_prompt(user_timestamp: Optional[float] = None, already_watched:
 
     if already_watched:
         core_rules = (
-            "1. Use the subtitle excerpts for specific dialogue, AND your general knowledge about the film for broader context\n"
-            "2. Warm, conversational tone — like a friend who has seen the film many times\n"
+            "1. Use the subtitle excerpts for dialogue references, AND your general knowledge about the film for plot details, explanations, and context\n"
+            "2. Warm, conversational tone — like a friend who has seen the film many times and loves discussing it\n"
             "3. NEVER include timestamps, excerpt numbers, or technical details in your answer\n"
-            "4. Keep dialogue quotes SHORT (under 15 words). Pick the most impactful line\n"
-            "5. ONE cohesive answer — never go excerpt-by-excerpt"
+            "4. For plot/ending questions: Give DETAILED explanations of what happens, character motivations, and meaning\n"
+            "5. ONE cohesive, thorough answer — don't be vague or evasive"
         )
         response_style = (
-            "- Character questions: Discuss the character's FULL arc, motivations, and fate\n"
-            "- Plot questions: Explain the whole story, including twists and the ending\n"
-            "- Theme questions: Analyze themes across the entire film, including resolution\n"
-            "- Mood/vibe questions: Engage with the viewer's reflection on the full experience\n"
-            "- Spoiler questions: Answer fully — the viewer has seen it all\n"
-            "- If not in excerpts: Draw on your knowledge of the film to answer"
+            "- Character questions: Discuss the character's FULL arc, motivations, relationships, and fate in detail\n"
+            "- Plot questions: Explain the COMPLETE story including setup, twists, climax, and resolution\n"
+            "- 'What happens' questions: Describe the actual events in detail — names, actions, consequences\n"
+            "- Theme questions: Analyze themes across the entire film with specific examples\n"
+            "- Technical/sci-fi questions: Explain the in-universe logic, rules, or science clearly\n"
+            "- If not in excerpts: USE YOUR KNOWLEDGE of the film to give a complete answer"
         )
     else:
         core_rules = (
@@ -502,6 +568,12 @@ def build_system_prompt(user_timestamp: Optional[float] = None, already_watched:
             "- End with ONE short teaser that builds excitement (without spoiling)"
         )
 
+    # Different word limits for different modes
+    if already_watched:
+        word_limit = "WORD LIMIT: Up to 200 words. Give thorough, detailed answers since the viewer has seen everything."
+    else:
+        word_limit = "STRICT LIMIT: 80 words maximum. Be concise."
+
     return f"""You are The Oracle — a movie watching companion guiding viewers in real-time.
 
 CONTEXT: {timestamp_context}
@@ -514,7 +586,7 @@ CORE RULES:
 RESPONSE STYLE:
 {response_style}
 
-STRICT LIMIT: 80 words maximum. Be concise."""
+{word_limit}"""
 
 
 def build_rag_prompt(
@@ -899,9 +971,11 @@ async def ask_oracle(request: QueryRequest):
         )
 
     # Step 1: Query understanding
+    t_intent = time.time()
     intent = classify_intent(request.query)
     # When already_watched, ignore timestamp — retrieve all chunks freely
     timestamp_hint = None if request.already_watched else (request.timestamp or extract_timestamp_hint(request.query))
+    intent_ms = (time.time() - t_intent) * 1000
 
     logger.info(
         f"Query: '{request.query[:60]}...' | movie={request.movie_id} | "
@@ -909,6 +983,7 @@ async def ask_oracle(request: QueryRequest):
     )
 
     # Step 2: Retrieve relevant chunks
+    t_retrieval = time.time()
     chunks = retrieve_chunks(
         collection=collection,
         embedder=embedder,
@@ -917,6 +992,7 @@ async def ask_oracle(request: QueryRequest):
         top_k=request.top_k,
         timestamp_hint=timestamp_hint,
     )
+    retrieval_ms = (time.time() - t_retrieval) * 1000
 
     if not chunks:
         return QueryResponse(
@@ -930,17 +1006,21 @@ async def ask_oracle(request: QueryRequest):
         )
 
     # Step 3: Build prompt with retrieved context + conversation history
+    t_prompt = time.time()
     prompt = build_rag_prompt(
         request.query, chunks, intent,
         conversation_history=request.conversation_history or None,
         user_timestamp=timestamp_hint,
         already_watched=request.already_watched,
     )
+    prompt_ms = (time.time() - t_prompt) * 1000
 
     # Step 4: Generate answer
+    t_generate = time.time()
     answer = ollama_client.generate(prompt) if ollama_client else (
         "Ollama not initialized. See source chunks below for raw dialogue."
     )
+    generate_ms = (time.time() - t_generate) * 1000
 
     # Step 5: Format response
     sources = [
@@ -959,6 +1039,10 @@ async def ask_oracle(request: QueryRequest):
     logger.info(
         f"Response: {len(sources)} sources | {len(answer)} chars | "
         f"{query_time:.1f}ms | intent={intent}"
+    )
+    logger.info(
+        f"Pipeline timing | intent={intent_ms:.1f}ms retrieval={retrieval_ms:.1f}ms "
+        f"prompt={prompt_ms:.1f}ms generation={generate_ms:.1f}ms total={query_time:.1f}ms"
     )
 
     return QueryResponse(
@@ -999,15 +1083,18 @@ async def ask_oracle_stream(request: QueryRequest):
         )
 
     # Steps 1-3: same as /ask (query understanding + retrieval + prompt)
+    t_intent = time.time()
     intent = classify_intent(request.query)
     # When already_watched, ignore timestamp — retrieve all chunks freely
     timestamp_hint = None if request.already_watched else (request.timestamp or extract_timestamp_hint(request.query))
+    intent_ms = (time.time() - t_intent) * 1000
 
     logger.info(
         f"[stream] Query: '{request.query[:60]}' | movie={request.movie_id} | "
         f"intent={intent} | history_turns={len(request.conversation_history)}"
     )
 
+    t_retrieval = time.time()
     chunks = retrieve_chunks(
         collection=collection,
         embedder=embedder,
@@ -1016,6 +1103,7 @@ async def ask_oracle_stream(request: QueryRequest):
         top_k=request.top_k,
         timestamp_hint=timestamp_hint,
     )
+    retrieval_ms = (time.time() - t_retrieval) * 1000
 
     # Format sources for the client
     sources_payload = [
@@ -1045,6 +1133,7 @@ async def ask_oracle_stream(request: QueryRequest):
             "intent": intent,
         })
         yield f"data: {sources_event}\n\n"
+        prompt_ms = 0.0
 
         if not chunks:
             # No results — emit a single token event explaining why
@@ -1058,24 +1147,40 @@ async def ask_oracle_stream(request: QueryRequest):
             yield f"data: {no_result}\n\n"
         else:
             # Build the prompt with history
+            t_prompt = time.time()
             prompt = build_rag_prompt(
                 request.query, chunks, intent,
                 conversation_history=request.conversation_history or None,
                 user_timestamp=timestamp_hint,
                 already_watched=request.already_watched,
             )
+            prompt_ms = (time.time() - t_prompt) * 1000
 
             # Stream tokens from Ollama (async to avoid blocking event loop)
             if ollama_client:
                 last_token = ""
+                llm_start = time.time()
+                first_token_ms = None
+                token_count = 0
+                char_count = 0
                 async for chunk in ollama_client.async_generate_stream(prompt):
                     token = chunk.get("response", "")
                     if token:
                         last_token = token
+                        token_count += 1
+                        char_count += len(token)
+                        if first_token_ms is None:
+                            first_token_ms = (time.time() - llm_start) * 1000
                         token_event = json.dumps({"type": "token", "content": token})
                         yield f"data: {token_event}\n\n"
                     if chunk.get("done"):
                         break
+                llm_total_ms = (time.time() - llm_start) * 1000
+                tok_per_sec = (token_count / (llm_total_ms / 1000.0)) if llm_total_ms > 0 else 0.0
+                logger.info(
+                    f"Stream generation | first_token={first_token_ms or 0:.1f}ms "
+                    f"tokens={token_count} chars={char_count} tok_s={tok_per_sec:.2f}"
+                )
                 # If output was truncated mid-sentence, add graceful ending
                 if last_token and not last_token.rstrip().endswith((".", "!", "?", '"', "...")):
                     ending = json.dumps({"type": "token", "content": "..."})
@@ -1089,6 +1194,10 @@ async def ask_oracle_stream(request: QueryRequest):
 
         # Final event with metadata
         query_time = (time.time() - start_time) * 1000
+        logger.info(
+            f"Stream pipeline | intent={intent_ms:.1f}ms retrieval={retrieval_ms:.1f}ms "
+            f"prompt={prompt_ms:.1f}ms total={query_time:.1f}ms"
+        )
         done_event = json.dumps({
             "type": "done",
             "model_used": LLM_MODEL if ollama_client and ollama_client.connected else "retrieval-only",

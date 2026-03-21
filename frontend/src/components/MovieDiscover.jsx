@@ -3,18 +3,10 @@
  * Movie Discovery Component - Fine-tuned Llama 3 Assistant
  * =============================================================================
  *
- * 🎓 CONCEPT: Conversational AI with RAG
- *
- * This component interfaces with the Movie Assistant Service which uses:
+ * Uses:
  * - Fine-tuned Llama 3 8B (QLoRA, trained on 2946 movie Q&A pairs)
  * - RAG: ChromaDB semantic search augments the LLM with real movie data
- * - Inference optimizations: SDPA, KV cache, BF16, 4-bit quantization
- *
- * The assistant can:
- * - Recommend movies by genre, mood, actor, director
- * - Find similar movies to ones you enjoyed
- * - Filter by runtime, year, rating
- * - Answer "what should I watch tonight?" style queries
+ * - Per-movie recommendation reasons explaining WHY each movie matches
  *
  * =============================================================================
  */
@@ -32,6 +24,7 @@ const EXAMPLE_QUERIES = [
     "Show me Christopher Nolan films",
     "Best animated movies for adults",
     "Movies similar to The Dark Knight",
+    "I'm stressed and want to relax with a feel-good movie",
 ]
 
 export default function MovieDiscover() {
@@ -73,32 +66,8 @@ export default function MovieDiscover() {
         setQuery(example)
     }
 
-    /**
-     * Parse the assistant's text response into structured movie cards.
-     * The fine-tuned model outputs numbered lists with movie metadata.
-     */
-    const parseMovies = (text) => {
-        if (!text) return []
-        const movieBlocks = text.split(/\n(?=\d+\.\s+\*\*)/g).filter(Boolean)
-        return movieBlocks.map((block) => {
-            const titleMatch = block.match(/\*\*(.+?)\*\*/)
-            const yearMatch = block.match(/\((\d{4})\)/)
-            const genreMatch = block.match(/\d{4}\)\s*-\s*([^-]+)-/)
-            const runtimeMatch = block.match(/(\d+h\s*\d*m|\d+\s*min)/)
-            const descLines = block.split('\n').slice(1).join(' ').trim()
-
-            return {
-                title: titleMatch?.[1] || 'Unknown',
-                year: yearMatch?.[1] || '',
-                genre: genreMatch?.[1]?.trim() || '',
-                runtime: runtimeMatch?.[0] || '',
-                description: descLines.replace(/\*\*.+?\*\*.*?-.*?-.*?\n/, '').trim(),
-                raw: block,
-            }
-        })
-    }
-
-    const movies = response ? parseMovies(response.answer || response.response || '') : []
+    // Use recommended_movies from API (structured data)
+    const movies = response?.recommended_movies || []
 
     return (
         <div className="card-cyber max-w-4xl mx-auto">
@@ -109,7 +78,7 @@ export default function MovieDiscover() {
                     <h2 className="text-2xl font-bold text-cyber-accent">Movie Discovery</h2>
                     <p className="text-gray-400">
                         Fine-tuned Llama 3 8B · RAG · {' '}
-                        <span className="text-cyber-purple text-xs">QLoRA · SDPA · BF16</span>
+                        <span className="text-cyber-purple text-xs">QLoRA · Semantic Search</span>
                     </p>
                 </div>
             </div>
@@ -217,64 +186,104 @@ export default function MovieDiscover() {
                         exit={{ opacity: 0 }}
                         className="space-y-4"
                     >
-                        {/* Performance metrics */}
-                        {(response.query_time_ms || response.retrieval_ms) && (
-                            <div className="flex gap-4 text-xs text-gray-400">
-                                {response.query_time_ms && <span>⚡ {response.query_time_ms.toFixed(0)}ms total</span>}
-                                {response.retrieval_ms && <span>🔍 {response.retrieval_ms.toFixed(0)}ms retrieval</span>}
-                                {response.movies_found !== undefined && <span>🎞 {response.movies_found} movies retrieved</span>}
-                                {response.backend && <span>🤖 {response.backend}</span>}
-                            </div>
-                        )}
+                        {/* Performance metrics & model info */}
+                        <div className="flex flex-wrap gap-4 text-xs text-gray-400 mb-2">
+                            {response.retrieval_count !== undefined && (
+                                <span>🎞 {response.retrieval_count} movies found</span>
+                            )}
+                            {response.model_used && (
+                                <span className="text-cyber-purple">🤖 {response.model_used.includes('local') ? 'Fine-tuned Llama 3' : response.model_used}</span>
+                            )}
+                        </div>
 
-                        {/* Movie Cards */}
+                        {/* Movie Cards with per-movie explanations */}
                         {movies.length > 0 ? (
-                            <div className="space-y-3">
-                                {movies.map((movie, idx) => (
-                                    <motion.div
-                                        key={idx}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: idx * 0.08 }}
-                                        className="p-4 rounded-lg glass-morphism border border-cyber-accent/20
-                                                   hover:border-cyber-accent/50 transition-all"
-                                    >
-                                        <div className="flex items-start justify-between gap-2 mb-1">
-                                            <h3 className="font-bold text-white">
-                                                {idx + 1}. {movie.title}
-                                                {movie.year && (
-                                                    <span className="text-gray-400 font-normal ml-2">({movie.year})</span>
-                                                )}
-                                            </h3>
-                                            <div className="flex gap-2 text-xs shrink-0">
-                                                {movie.genre && (
-                                                    <span className="px-2 py-0.5 rounded-full bg-cyber-purple/20 text-cyber-purple">
-                                                        {movie.genre}
-                                                    </span>
-                                                )}
-                                                {movie.runtime && (
-                                                    <span className="px-2 py-0.5 rounded-full bg-cyber-accent/10 text-cyber-accent">
-                                                        {movie.runtime}
-                                                    </span>
+                            <div className="space-y-4">
+                                {movies.map((movie, idx) => {
+                                    const isEvenRow = idx % 2 === 0;
+                                    return (
+                                        <motion.div
+                                            key={idx}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: idx * 0.1 }}
+                                            className="p-4 rounded-lg glass-morphism border border-cyber-accent/20
+                                                       hover:border-cyber-accent/50 transition-all flex flex-col md:flex-row gap-6"
+                                        >
+                                            <div className={`flex flex-col flex-1 ${!isEvenRow ? 'md:order-2' : ''}`}>
+                                                {/* Movie Header */}
+                                                <div className="flex items-start justify-between gap-2 mb-2">
+                                                    <h3 className="font-bold text-white text-lg">
+                                                        <span className="text-cyber-accent mr-2">#{idx + 1}</span>
+                                                        {movie.title}
+                                                        {movie.year && (
+                                                            <span className="text-gray-400 font-normal ml-2">({movie.year})</span>
+                                                        )}
+                                                    </h3>
+                                                    <div className="flex gap-2 text-xs shrink-0">
+                                                        {movie.rating && (
+                                                            <span className="px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400 font-medium">
+                                                                ⭐ {movie.rating.toFixed(1)}
+                                                            </span>
+                                                        )}
+                                                        {movie.relevance_score && (
+                                                            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 font-medium">
+                                                                {(movie.relevance_score * 100).toFixed(0)}% match
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Movie Meta */}
+                                                <div className="flex flex-wrap gap-2 mb-3">
+                                                    {movie.genres && (
+                                                        <span className="text-xs px-2 py-1 rounded-full bg-cyber-purple/20 text-cyber-purple">
+                                                            {movie.genres}
+                                                        </span>
+                                                    )}
+                                                    {movie.director && (
+                                                        <span className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
+                                                            🎬 {movie.director}
+                                                        </span>
+                                                    )}
+                                                    {movie.runtime && (
+                                                        <span className="text-xs px-2 py-1 rounded-full bg-gray-500/20 text-gray-400">
+                                                            ⏱ {movie.runtime} min
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Movie Description */}
+                                                {movie.description && (
+                                                    <p className="text-gray-400 text-sm leading-relaxed">
+                                                        {movie.description}
+                                                    </p>
                                                 )}
                                             </div>
-                                        </div>
-                                        {movie.description && (
-                                            <p className="text-gray-400 text-sm leading-relaxed line-clamp-3">
-                                                {movie.description}
-                                            </p>
-                                        )}
-                                    </motion.div>
-                                ))}
+
+                                            {/* AI Explanation Content - alternating sides */}
+                                            {movie.recommendation_reason && (
+                                                <div className={`flex flex-col w-full md:w-1/3 shrink-0 ${!isEvenRow ? 'md:order-1' : ''}`}>
+                                                    <div className="h-full p-4 rounded-lg bg-gradient-to-br from-cyber-purple/10 to-cyber-pink/10
+                                                                    border-l-4 border-cyber-accent shadow-inner flex flex-col justify-center gap-2">
+                                                        <h4 className="flex items-center gap-2 text-sm font-bold text-cyber-accent uppercase tracking-wider">
+                                                            <span><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></span>
+                                                            AI's Take
+                                                        </h4>
+                                                        <p className="text-sm text-gray-200 leading-relaxed italic">
+                                                            "{movie.recommendation_reason}"
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    );
+                                })}
                             </div>
                         ) : (
-                            /* Fallback: raw text response */
-                            <div className="p-4 rounded-lg bg-gradient-to-br from-cyber-purple/20 to-cyber-pink/20
-                                            border border-cyber-accent/30">
-                                <p className="text-sm font-semibold text-cyber-accent mb-2">Recommendations</p>
-                                <p className="text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
-                                    {response.answer || response.response || JSON.stringify(response, null, 2)}
-                                </p>
+                            /* No movies found */
+                            <div className="p-4 rounded-lg glass-morphism text-center">
+                                <p className="text-gray-400">No movies found matching your criteria.</p>
                             </div>
                         )}
                     </motion.div>
@@ -286,10 +295,9 @@ export default function MovieDiscover() {
                 <div className="mt-2 p-4 rounded-lg glass-morphism">
                     <p className="text-sm text-gray-400">
                         💡 <strong>How it works:</strong> Your query is converted to a vector embedding,
-                        ChromaDB retrieves semantically similar movies, and a fine-tuned{' '}
-                        <span className="text-cyber-accent">Llama 3 8B</span> generates personalized
-                        recommendations with descriptions. Trained on 2,946 movie Q&A pairs with
-                        QLoRA, NEFTune, and rsLoRA.
+                        ChromaDB retrieves semantically similar movies, and our fine-tuned{' '}
+                        <span className="text-cyber-accent">Llama 3</span> explains why each movie
+                        matches your search. Results are sorted by <strong>relevance</strong>, not rating.
                     </p>
                 </div>
             )}

@@ -10,7 +10,8 @@ Welcome to the StreamSage documentation. This folder contains comprehensive guid
 |----------|-------------|----------|
 | [Main README](../README.md) | Project overview and setup instructions | Getting started |
 | [QUICKSTART](../QUICKSTART.md) | Step-by-step local development guide | Running the project |
-| [LEARNING_ROADMAP](LEARNING_ROADMAP.md) | 3-week structured learning path | **Learning everything** |
+| **[Learning Course](learning-course/README.md)** | **3-week structured course with daily lessons** | **Learning everything step-by-step** |
+| [LEARNING_ROADMAP](LEARNING_ROADMAP.md) | High-level learning path overview | Quick reference |
 | [ARCHITECTURE](ARCHITECTURE.md) | System design and data flow diagrams | Understanding how it works |
 | [TECH_STACK](TECH_STACK.md) | Complete list of technologies used | Technical reference |
 | [INTERVIEW_GUIDE](INTERVIEW_GUIDE.md) | Q&A preparation for technical interviews | Interview prep |

@@ -46,6 +46,8 @@ import os
 import logging
 import re
 import time
+from collections import OrderedDict
+from functools import lru_cache
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -105,6 +107,12 @@ if not os.getenv("LOCAL_MODEL_PATH") and os.path.exists(os.path.join(_default_mo
 else:
     LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", "")
 ENABLE_SPECULATIVE = os.getenv("ENABLE_SPECULATIVE", "true").lower() == "true"
+DISCOVER_RESPONSE_CACHE_TTL_S = int(os.getenv("DISCOVER_RESPONSE_CACHE_TTL_S", "45"))
+DISCOVER_RESPONSE_CACHE_SIZE = int(os.getenv("DISCOVER_RESPONSE_CACHE_SIZE", "256"))
+QUERY_EMBED_CACHE_TTL_S = int(os.getenv("QUERY_EMBED_CACHE_TTL_S", "300"))
+QUERY_EMBED_CACHE_SIZE = int(os.getenv("QUERY_EMBED_CACHE_SIZE", "2048"))
+RERANK_MAX_CANDIDATES = int(os.getenv("RERANK_MAX_CANDIDATES", "140"))
+CROSS_ENCODER_MAX_CANDIDATES = int(os.getenv("CROSS_ENCODER_MAX_CANDIDATES", "90"))
 
 # Build a title → {runtime, description} lookup from the processed features file.
 # ChromaDB metadata doesn't store these fields, so we load them once at startup.
@@ -197,6 +205,7 @@ class MovieResult(BaseModel):
     runtime: Optional[int] = None   # minutes
     description: Optional[str] = None
     relevance_score: float
+    recommendation_reason: Optional[str] = None  # Why this movie matches the query
 
 
 class DiscoverResponse(BaseModel):
@@ -230,6 +239,8 @@ inference_engine: Optional[InferenceManager] = None
 cross_encoder = None  # sentence_transformers.CrossEncoder for re-ranking
 bm25_index = None     # BM25Okapi index for keyword search
 bm25_doc_ids = []     # ChromaDB doc IDs corresponding to BM25 corpus rows
+_discover_response_cache = OrderedDict()  # key -> (timestamp, DiscoverResponse)
+_query_embedding_cache = OrderedDict()    # key -> (timestamp, embedding vector)
 
 
 def _reinit_vectorstore() -> bool:
@@ -2086,6 +2097,11 @@ def _classify_query(query: str) -> dict:
     return result
 
 
+@lru_cache(maxsize=2048)
+def _classify_query_cached(normalized_query: str) -> dict:
+    return _classify_query(normalized_query)
+
+
 def _extract_movie_title_query(query: str) -> Optional[str]:
     """
     Detect 'movies like X' / 'similar to X' patterns and extract the movie title.
@@ -2196,20 +2212,12 @@ def build_alpaca_prompt(query: str, movie_context: str) -> str:
     """
     Build a prompt in the Alpaca template format that matches our fine-tuned
     Llama 3 model's training data.
-
-    The model was trained with:
-        ### Instruction: {query}
-        ### Input: (empty)
-        ### Response: {detailed recommendations}
-
-    Since the model learned with empty Input, we embed the RAG context
-    directly into the Instruction field so it actually reads it.  We also
-    add an explicit grounding directive to reduce hallucination.
     """
     instruction = (
         f"Based on the user's request, recommend movies ONLY from the list below. "
-        f"Do NOT recommend movies that are not in this list. "
-        f"Include the title, year, genre, and a brief reason why each movie matches.\n\n"
+        f"Do NOT recommend movies that are not in this list.\n"
+        f"For EACH movie you recommend, wrap your explanation in tags like this: <reason>Movie Title: Provide a short, persuasive overview combining the plot and exactly WHY the user should watch it based on their specific request</reason>\n\n"
+        f"Make sure to strictly include the exact Movie Title and a colon before your explanation inside the tags.\n\n"
         f"Available movies:\n{movie_context}\n\n"
         f"User request: {query}"
     )
@@ -2221,27 +2229,26 @@ def build_alpaca_prompt(query: str, movie_context: str) -> str:
     )
 
 
-def _build_grounded_answer(raw_llm_text: str, results: dict) -> str:
+def _build_grounded_answer(raw_llm_text: str, results: dict) -> tuple:
     """
-    Post-process the LLM response to eliminate hallucination.
-
-    The fine-tuned model was trained to generate from memory, not from RAG
-    context, so it frequently recommends movies NOT in the retrieved list.
-
-    Strategy:
-    - Extract the LLM's opening line (conversational tone)
-    - Build accurate movie recommendations from retrieved metadata
-    - Combine for a grounded, natural-sounding response
+    Post-process the LLM response to eliminate hallucination and extract per-movie reasons.
     """
+    # Extract <reason>Title: reason</reason> tags
+    llm_reasons = {}
+    import re
+    # More permissive regex: allows optional bolding around title and flexible spacing
+    reason_pattern = r'<reason>\s*(?:\*\*)?([^:*]+)(?:\*\*)?:\s*(.+?)\s*</reason>'
+    for match in re.finditer(reason_pattern, raw_llm_text, re.DOTALL):
+        movie_title = match.group(1).strip().lower()
+        reason_text = match.group(2).strip()
+        if movie_title:
+            llm_reasons[movie_title] = reason_text
+
     # Extract the first sentence or two from the LLM as the intro.
-    # Split on newlines first, take the first non-empty line.
     lines = [l.strip() for l in raw_llm_text.strip().split('\n') if l.strip()]
     intro = ""
-    if lines:
-        first_line = lines[0]
-        # If first line is a heading-like intro (no numbering), use it
-        if not first_line[:3].replace('.', '').replace(' ', '').isdigit():
-            intro = first_line
+    if lines and not lines[0][:3].replace('.', '').replace(' ', '').isdigit():
+        intro = lines[0]
 
     # Build accurate recommendation text from retrieved data
     recs = []
@@ -2250,31 +2257,13 @@ def _build_grounded_answer(raw_llm_text: str, results: dict) -> str:
         year = meta.get('year', 'N/A')
         genres = meta.get('genres', 'N/A')
         rating = meta.get('rating', 'N/A')
-        director = meta.get('director', '')
-
-        # Get overview from document text
-        doc = results['documents'][0][i] if i < len(results['documents'][0]) else ''
-        overview = ''
-        for line in doc.split('\n'):
-            stripped = line.strip()
-            if stripped and not stripped.startswith(
-                ('Title:', 'Genres:', 'Director:', 'Cast:', 'Moods:', 'Keywords:', 'Year:', 'Rating:')
-            ):
-                overview = stripped[:200]
-                break
-
+        
         entry = f"{i+1}. **{title}** ({year}) - {genres} - {rating}/10"
-        if director:
-            entry += f"\n   Director: {director}"
-        if overview:
-            entry += f"\n   {overview}"
         recs.append(entry)
 
-    # Combine intro + recommendations
-    if intro:
-        return intro + "\n\n" + "\n\n".join(recs)
-    else:
-        return "Here are my recommendations:\n\n" + "\n\n".join(recs)
+    answer_text = (intro + "\n\n" + "\n\n".join(recs)) if intro else ("Here are my recommendations:\n\n" + "\n\n".join(recs))
+
+    return answer_text, llm_reasons
 
 
 def format_movies_for_context(results: List, distances: List) -> str:
@@ -2316,6 +2305,77 @@ Relevance: {similarity:.2%}
         context_parts.append(movie_text.strip())
     
     return "\n\n---\n\n".join(context_parts)
+
+
+def _trim_ordered_ttl(cache, ttl_s, max_size):
+    """Trim expired entries and enforce max size for an OrderedDict TTL cache."""
+    now = time.time()
+    expired_keys = [k for k, (ts, _) in cache.items() if now - ts > ttl_s]
+    for k in expired_keys:
+        cache.pop(k, None)
+    while len(cache) > max_size:
+        cache.popitem(last=False)
+
+
+def _discover_cache_key(request: DiscoverRequest) -> str:
+    """Build a stable cache key for discover requests."""
+    return "|".join([
+        request.query.strip().lower(),
+        (request.genre or "").strip().lower(),
+        str(request.min_year) if request.min_year is not None else "",
+        str(request.max_year) if request.max_year is not None else "",
+        str(request.min_rating) if request.min_rating is not None else "",
+        str(request.top_k),
+    ])
+
+
+def _get_cached_discover_response(cache_key: str):
+    """Return cached DiscoverResponse if present and not expired."""
+    _trim_ordered_ttl(_discover_response_cache, DISCOVER_RESPONSE_CACHE_TTL_S, DISCOVER_RESPONSE_CACHE_SIZE)
+    hit = _discover_response_cache.get(cache_key)
+    if not hit:
+        return None
+    ts, response = hit
+    if time.time() - ts > DISCOVER_RESPONSE_CACHE_TTL_S:
+        _discover_response_cache.pop(cache_key, None)
+        return None
+    _discover_response_cache.move_to_end(cache_key)
+    return response
+
+
+def _set_cached_discover_response(cache_key: str, response: DiscoverResponse):
+    """Store discover response in TTL+LRU cache."""
+    _discover_response_cache[cache_key] = (time.time(), response)
+    _discover_response_cache.move_to_end(cache_key)
+    _trim_ordered_ttl(_discover_response_cache, DISCOVER_RESPONSE_CACHE_TTL_S, DISCOVER_RESPONSE_CACHE_SIZE)
+
+
+def _get_query_embedding_cached(text: str, is_document: bool = False):
+    """Get embedding from TTL+LRU cache with separate doc/query namespaces."""
+    if embeddings is None:
+        raise RuntimeError("Embedding model not loaded")
+
+    key_prefix = "d:" if is_document else "q:"
+    cache_key = f"{key_prefix}{text}"
+
+    _trim_ordered_ttl(_query_embedding_cache, QUERY_EMBED_CACHE_TTL_S, QUERY_EMBED_CACHE_SIZE)
+    cached = _query_embedding_cache.get(cache_key)
+    if cached:
+        ts, vec = cached
+        if time.time() - ts <= QUERY_EMBED_CACHE_TTL_S:
+            _query_embedding_cache.move_to_end(cache_key)
+            return vec
+        _query_embedding_cache.pop(cache_key, None)
+
+    if is_document:
+        vec = embeddings.embed_documents([text])[0]
+    else:
+        vec = embeddings.embed_query(text)
+
+    _query_embedding_cache[cache_key] = (time.time(), vec)
+    _query_embedding_cache.move_to_end(cache_key)
+    _trim_ordered_ttl(_query_embedding_cache, QUERY_EMBED_CACHE_TTL_S, QUERY_EMBED_CACHE_SIZE)
+    return vec
 
 
 # ============================================================================
@@ -2411,6 +2471,16 @@ async def discover_movies(request: DiscoverRequest):
             status_code=503,
             detail="Vector store not loaded. Please check server logs."
         )
+
+    total_start = time.time()
+    retrieval_ms = 0.0
+    generation_ms = 0.0
+
+    cache_key = _discover_cache_key(request)
+    cached_response = _get_cached_discover_response(cache_key)
+    if cached_response:
+        logger.info(f"   Discover response cache hit: {cache_key}")
+        return cached_response
     
     logger.info(f"🔍 Query: '{request.query}'")
     
@@ -2510,7 +2580,7 @@ async def discover_movies(request: DiscoverRequest):
         search_query = request.query
 
         # ── Query understanding ─────────────────────────────────────
-        query_intent = _classify_query(request.query)
+        query_intent = _classify_query_cached(request.query.lower().strip())
         logger.info(f"   Intent: {query_intent.get('intent')} | {query_intent}")
 
         if request.genre:
@@ -2706,7 +2776,7 @@ async def discover_movies(request: DiscoverRequest):
         if movie_title_query:
             logger.info(f"   'Movies like' pattern detected — looking up: '{movie_title_query}'")
             # First embed the original query to do the title lookup
-            temp_embedding = embeddings.embed_query(movie_title_query)
+            temp_embedding = _get_query_embedding_cached(movie_title_query)
             title_result = _find_movie_by_title(
                 movie_title_query, vectorstore._collection, temp_embedding
             )
@@ -2932,11 +3002,11 @@ async def discover_movies(request: DiscoverRequest):
         if similar_to_title and stored_query_embedding is not None:
             query_embedding = stored_query_embedding
         elif hyde_doc:
-            query_embedding = embeddings.embed_documents([hyde_doc])[0]
+            query_embedding = _get_query_embedding_cached(hyde_doc, is_document=True)
         elif similar_to_title:
-            query_embedding = embeddings.embed_documents([search_query])[0]
+            query_embedding = _get_query_embedding_cached(search_query, is_document=True)
         else:
-            query_embedding = embeddings.embed_query(BGE_QUERY_PREFIX + search_query)
+            query_embedding = _get_query_embedding_cached(BGE_QUERY_PREFIX + search_query)
 
         # ── Dual retrieval ──────────────────────────────────────────
         # 1) Standard vector search (semantic similarity)
@@ -3686,6 +3756,13 @@ async def discover_movies(request: DiscoverRequest):
                     except Exception:
                         pass
 
+        # ── Array bounds to cap execution time ──────────────────────
+        if results['documents'][0] and len(results['documents'][0]) > RERANK_MAX_CANDIDATES:
+            logger.info(f"   Capping candidates from {len(results['documents'][0])} to {RERANK_MAX_CANDIDATES} before fallback/CE")
+            results['documents'][0] = results['documents'][0][:RERANK_MAX_CANDIDATES]
+            results['metadatas'][0] = results['metadatas'][0][:RERANK_MAX_CANDIDATES]
+            results['distances'][0] = results['distances'][0][:RERANK_MAX_CANDIDATES]
+
         # ── Cross-encoder re-ranking ──────────────────────────────
         # The cross-encoder sees (query, document) pairs jointly and produces
         # more nuanced relevance scores. We BLEND CE scores with original distances
@@ -3735,6 +3812,14 @@ async def discover_movies(request: DiscoverRequest):
                 }
                 if matched_mood_word and query_intent.get('intent') == 'mood':
                     ce_query = mood_ce_rewrites.get(matched_mood_word, request.query)
+
+                # Cap the maximum candidates specifically hitting the CrossEncoder
+                if len(results['documents'][0]) > CROSS_ENCODER_MAX_CANDIDATES:
+                    logger.info(f"   Hard-capping CrossEncoder candidates to {CROSS_ENCODER_MAX_CANDIDATES}")
+                    results['documents'][0] = results['documents'][0][:CROSS_ENCODER_MAX_CANDIDATES]
+                    results['metadatas'][0] = results['metadatas'][0][:CROSS_ENCODER_MAX_CANDIDATES]
+                    results['distances'][0] = results['distances'][0][:CROSS_ENCODER_MAX_CANDIDATES]
+
                 pairs = [(ce_query, doc) for doc in results['documents'][0]]
                 ce_scores = cross_encoder.predict(pairs)
                 # CE weight: use conservative 30% for mood queries (reranker
@@ -4000,6 +4085,8 @@ async def discover_movies(request: DiscoverRequest):
     #   - 1.2 = Slight penalty (recommended)
     # ========================================================================
     
+    llm_reasons = {}
+
     if inference_engine is None and hf_client is None:
         # Fallback: Return retrieval results without LLM.
         # The frontend renders movie cards directly; no text banner needed.
@@ -4024,7 +4111,7 @@ async def discover_movies(request: DiscoverRequest):
             # Post-process: The fine-tuned model often hallucinates movies not
             # in the retrieved context.  Extract only the intro sentence(s) from
             # the LLM, then build accurate recommendations from retrieved data.
-            answer = _build_grounded_answer(raw_answer, results)
+            answer, llm_reasons = _build_grounded_answer(raw_answer, results)
 
         except Exception as e:
             logger.error(f"Optimized engine error: {e}, falling back to HF API")
@@ -4038,12 +4125,16 @@ Here are relevant movies:
 
 User Query: {request.query}
 
-Recommend movies from the list above. Be conversational and include titles, years, and why they match."""
+Recommend movies from the list above. For each movie recommendation, wrap your reason in tags:
+<reason>Movie Title: Provide a short, persuasive overview combining the plot and WHY the user should watch it based on their specific request</reason>
+
+Be conversational and include titles, years, and why they match."""
                 resp = hf_client.chat_completion(
                     messages=[{"role": "user", "content": fallback_prompt}],
                     max_tokens=512, temperature=0.7
                 )
-                answer = resp.choices[0].message.content
+                raw_answer = resp.choices[0].message.content
+                answer, llm_reasons = _build_grounded_answer(raw_answer, results)
                 generation_backend = "hf_api_fallback"
             else:
                 answer = f"Error: {str(e)}"
@@ -4058,11 +4149,8 @@ You have access to information about the following movies (sorted by relevance):
 
 User Query: {request.query}
 
-Please provide a helpful recommendation. Include:
-1. Which movie(s) you recommend and why
-2. Brief plot summary
-3. Why it matches their request
-4. Any relevant details (director, cast, ratings)
+Please provide helpful recommendations. For each movie you recommend, include:
+<reason>Movie Title: Brief explanation of why this movie matches their request</reason>
 
 Be conversational and enthusiastic! Cite the movie titles from the context above.
 """
@@ -4076,7 +4164,8 @@ Be conversational and enthusiastic! Cite the movie titles from the context above
                 max_tokens=512,
                 temperature=0.7,
             )
-            answer = resp.choices[0].message.content
+            raw_answer = resp.choices[0].message.content
+            answer, llm_reasons = _build_grounded_answer(raw_answer, results)
 
             logger.info("Response generated!")
 
@@ -4090,12 +4179,49 @@ Be conversational and enthusiastic! Cite the movie titles from the context above
     # ========================================================================
     # Step 4: FORMAT RESPONSE
     # ========================================================================
-    
-    # Extract movie results and sort by rating (highest first) so users
-    # always see the best-rated recommendations at the top.
+
+    def _generate_recommendation_reason(query: str, meta: dict, relevance: float) -> str:
+        """Generate a short explanation for why this movie matches the query."""
+        
+        # If we have pre-generated reasons from an LLM call earlier in the file, use them!
+        title = meta.get('title', 'This film')
+        title_lower = title.lower()
+        
+        # Looser match: check if the exact title is a key, or if it's a substring
+        for key, reason in llm_reasons.items():
+            if key in title_lower or title_lower in key:
+                return f"🤖 AI's Take: {reason}"
+
+        # If the LLM didn't generate a reason, we dynamically craft a short context overview
+        genres = meta.get('genres', '').lower()
+        director = meta.get('director', '')
+        
+        # Build an intelligent sounding fallback based on vector semantic match
+        reasons = []
+        if director and director.lower() in query.lower():
+            reasons.append(f"Directed by {director}, matching your request perfectly.")
+        
+        fallback_msg = "A strong thematic match to your query."
+        if relevance >= 0.7:
+            fallback_msg = "An exceptional match that closely aligns with what you're looking for."
+            
+        desc = _movie_overview_lookup.get(title, '')
+        if desc:
+            # Grab a short snippet of the description to make it feel personalized
+            snippet = map(str.strip, desc.split('.'))
+            snippet = next((s for s in snippet if len(s) > 20), "")
+            if snippet:
+                return f"🤖 AI's Take: {fallback_msg} This film explores how {snippet.lower()}."
+
+        if reasons:
+            return f"🤖 AI's Take: {' '.join(reasons)} {fallback_msg}"
+            
+        return f"🤖 AI's Take: {fallback_msg} It shares deep semantic themes with your search."
+
     movies = []
     for i, meta in enumerate(results['metadatas'][0]):
         distance = results['distances'][0][i]
+        relevance = round(1 - distance, 3)
         movies.append(MovieResult(
             title=meta.get('title', 'Unknown'),
             year=meta.get('year'),
@@ -4104,20 +4230,24 @@ Be conversational and enthusiastic! Cite the movie titles from the context above
             director=meta.get('director'),
             runtime=_movie_runtime_lookup.get(meta.get('title', '')),
             description=_movie_overview_lookup.get(meta.get('title', '')),
-            relevance_score=round(1 - distance, 3)
+            relevance_score=relevance,
+            recommendation_reason=_generate_recommendation_reason(request.query, meta, relevance)
         ))
-    movies.sort(key=lambda m: m.rating or 0, reverse=True)
+    # Sort by relevance score (highest match first), NOT by rating
+    movies.sort(key=lambda m: m.relevance_score or 0, reverse=True)
     
-    return DiscoverResponse(
+    final_response = DiscoverResponse(
         query=request.query,
         answer=answer,
         recommended_movies=movies,
         model_used=f"{inference_engine.config.model_path} ({generation_backend})" if inference_engine else f"{LLM_MODEL} ({generation_backend})" if hf_client else "retrieval_only",
         retrieval_count=len(movies)
     )
-
-
-# ============================================================================
+    
+    # Store the computed response into the cache
+    _set_cached_discover_response(cache_key, final_response)
+    
+    return final_response
 # Entry Point
 # ============================================================================
 
