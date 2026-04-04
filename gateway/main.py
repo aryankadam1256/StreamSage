@@ -35,7 +35,8 @@ Trade-offs:
 import os
 import logging
 import asyncio
-from typing import Any, Dict
+import time
+from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,10 +57,14 @@ SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:800
 MOVIE_ASSISTANT_SERVICE_URL = os.getenv("MOVIE_ASSISTANT_SERVICE_URL", "http://localhost:8004")
 
 # Timeout for service calls
-SERVICE_TIMEOUT = 30.0
+SERVICE_TIMEOUT = 300.0
 HEALTH_TIMEOUT = 5.0
 ORACLE_STREAM_TIMEOUT = 300.0
-MOVIE_DISCOVER_TIMEOUT = 60.0
+MOVIE_DISCOVER_TIMEOUT = 300.0
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "626d6c744ce54f356ec6ce2d0ff3b6e6")
+TMDB_IMAGE_TIMEOUT = float(os.getenv("TMDB_IMAGE_TIMEOUT", "3.5"))
+TMDB_IMAGE_CACHE_TTL = int(os.getenv("TMDB_IMAGE_CACHE_TTL", "86400"))  # 24h
+TMDB_IMAGE_NEGATIVE_CACHE_TTL = int(os.getenv("TMDB_IMAGE_NEGATIVE_CACHE_TTL", "60"))  # 1m
 
 # Retry policy for transient network issues.
 GATEWAY_GET_RETRIES = int(os.getenv("GATEWAY_GET_RETRIES", "2"))
@@ -68,6 +73,18 @@ GATEWAY_RETRY_BACKOFF_MS = int(os.getenv("GATEWAY_RETRY_BACKOFF_MS", "120"))
 
 
 _gateway_client: httpx.AsyncClient | None = None
+_tmdb_image_cache: Dict[int, Dict[str, Any]] = {}
+
+
+def _dedupe_urls(urls: List[str]) -> List[str]:
+    seen = set()
+    result: List[str] = []
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        result.append(url)
+    return result
 
 
 def _get_gateway_client() -> httpx.AsyncClient:
@@ -306,7 +323,7 @@ async def oracle_ask_stream(request: Request):
                 headers={"Content-Type": "application/json"},
                 timeout=ORACLE_STREAM_TIMEOUT,
             ) as response:
-                async for chunk in response.aiter_raw():
+                async for chunk in response.aiter_bytes():
                     if chunk:
                         yield chunk
         except Exception as e:
@@ -534,8 +551,104 @@ async def composite_movie_analysis(request: Request):
 
 
 # =============================================================================
-# Movie Assistant Routes
-# =============================================================================
+# Movie Assistant / TMDB Routes
+# ============================================================================= 
+
+@app.get("/api/v1/movies/{tmdb_id}/images", tags=["Movies"])
+async def get_movie_images(tmdb_id: int):
+    """
+    Fetch high-res poster and backdrop URLs for a specific movie directly from TMDB.
+    """
+    if not TMDB_API_KEY:
+        return {
+            "poster_path": None,
+            "backdrop_path": None,
+            "posters": [],
+            "backdrops": [],
+            "tmdb_available": False,
+            "detail": "TMDB API key not configured",
+        }
+
+    now = time.time()
+    cached = _tmdb_image_cache.get(tmdb_id)
+    if cached:
+        payload = dict(cached.get("payload", {}))
+        ttl = TMDB_IMAGE_CACHE_TTL if payload.get("tmdb_available") else TMDB_IMAGE_NEGATIVE_CACHE_TTL
+        if now - cached.get("ts", 0) < ttl:
+            payload["cache_hit"] = True
+            return payload
+
+    url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=images"
+    try:
+        response = await _request_with_retry("GET", url, retries=1, timeout=TMDB_IMAGE_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+
+        primary_poster = f"https://image.tmdb.org/t/p/w780{data.get('poster_path')}" if data.get("poster_path") else None
+        primary_backdrop = f"https://image.tmdb.org/t/p/original{data.get('backdrop_path')}" if data.get("backdrop_path") else None
+
+        images = data.get("images") or {}
+        poster_urls = _dedupe_urls([
+            *([primary_poster] if primary_poster else []),
+            *[
+                f"https://image.tmdb.org/t/p/w780{item.get('file_path')}"
+                for item in (images.get("posters") or [])
+                if item.get("file_path")
+            ],
+        ])
+        backdrop_urls = _dedupe_urls([
+            *([primary_backdrop] if primary_backdrop else []),
+            *[
+                f"https://image.tmdb.org/t/p/original{item.get('file_path')}"
+                for item in (images.get("backdrops") or [])
+                if item.get("file_path")
+            ],
+        ])
+
+        payload = {
+            "poster_path": poster_urls[0] if poster_urls else None,
+            "backdrop_path": backdrop_urls[0] if backdrop_urls else None,
+            "posters": poster_urls,
+            "backdrops": backdrop_urls,
+            "tmdb_available": True,
+            "cache_hit": False,
+        }
+        _tmdb_image_cache[tmdb_id] = {"ts": now, "payload": payload}
+        return payload
+    except httpx.HTTPStatusError as e:
+        logger.error(f"TMDB API error: {e}")
+        if cached:
+            payload = dict(cached.get("payload", {}))
+            payload.update({"cache_hit": True, "stale_cache": True})
+            return payload
+        payload = {
+            "poster_path": None,
+            "backdrop_path": None,
+            "posters": [],
+            "backdrops": [],
+            "tmdb_available": False,
+            "cache_hit": False,
+            "detail": f"TMDB fetch failed ({e.response.status_code})",
+        }
+        _tmdb_image_cache[tmdb_id] = {"ts": now, "payload": payload}
+        return payload
+    except Exception as e:
+        logger.error(f"Failed to fetch from TMDB: {e}")
+        if cached:
+            payload = dict(cached.get("payload", {}))
+            payload.update({"cache_hit": True, "stale_cache": True})
+            return payload
+        payload = {
+            "poster_path": None,
+            "backdrop_path": None,
+            "posters": [],
+            "backdrops": [],
+            "tmdb_available": False,
+            "cache_hit": False,
+            "detail": "TMDB proxy unavailable",
+        }
+        _tmdb_image_cache[tmdb_id] = {"ts": now, "payload": payload}
+        return payload
 
 @app.post("/api/v1/discover", tags=["Movie Assistant"])
 async def movie_discover(request: Request):
