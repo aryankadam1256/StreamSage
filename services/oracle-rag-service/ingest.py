@@ -53,6 +53,7 @@ MIN_CHUNK_CHARS = 100       # Minimum characters per chunk
 
 # Paths
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chromadb")
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "oracle_subtitles")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 
@@ -289,7 +290,7 @@ def initialize_vectorstore() -> Chroma:
     os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
     
     vectorstore = Chroma(
-        collection_name="movie_subtitles",
+        collection_name=CHROMA_COLLECTION_NAME,
         embedding_function=embeddings,
         persist_directory=CHROMA_PERSIST_DIR,
     )
@@ -438,6 +439,8 @@ def main():
         # Ingest with custom chunking parameters
         python ingest.py --file movie.srt --window 600 --overlap 60
     """
+    global CHUNK_WINDOW_SECONDS, CHUNK_OVERLAP_SECONDS
+
     parser = argparse.ArgumentParser(
         description="Ingest movie subtitles into ChromaDB for RAG",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -478,7 +481,6 @@ Examples:
     args = parser.parse_args()
     
     # Update chunking parameters if provided
-    global CHUNK_WINDOW_SECONDS, CHUNK_OVERLAP_SECONDS
     CHUNK_WINDOW_SECONDS = args.window
     CHUNK_OVERLAP_SECONDS = args.overlap
     

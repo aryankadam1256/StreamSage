@@ -51,6 +51,8 @@ from functools import lru_cache
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
+import numpy as np
+import requests
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,6 +88,8 @@ logger = logging.getLogger(__name__)
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")  # Required: Get from huggingface.co/settings/tokens
 CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "chroma_db"))
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 # BGE models require a query instruction prefix for optimal retrieval.
 # Documents are embedded without prefix; queries are embedded WITH prefix.
 BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
@@ -119,6 +123,7 @@ CROSS_ENCODER_MAX_CANDIDATES = int(os.getenv("CROSS_ENCODER_MAX_CANDIDATES", "90
 _FEATURES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "processed", "movie_features.json")
 _movie_runtime_lookup: Dict[str, int] = {}      # title → runtime in minutes
 _movie_overview_lookup: Dict[str, str] = {}     # title → overview / description
+_movie_feature_records: List[Dict[str, Any]] = []
 try:
     import json as _json
     with open(_FEATURES_PATH, encoding="utf-8") as _f:
@@ -130,6 +135,7 @@ try:
                 _movie_runtime_lookup[_t] = _m["runtime"]
             if _m.get("overview"):
                 _movie_overview_lookup[_t] = _m["overview"]
+            _movie_feature_records.append(_m)
     logger.info(f"Loaded runtime/overview for {len(_movie_runtime_lookup)} movies from features file")
 except Exception as _e:
     logger.warning(f"Could not load movie_features.json for runtime lookup: {_e}")
@@ -197,6 +203,7 @@ class DiscoverRequest(BaseModel):
 
 class MovieResult(BaseModel):
     """A single movie result."""
+    tmdb_id: Optional[int] = None
     title: str
     year: Optional[int]
     rating: Optional[float]
@@ -239,6 +246,7 @@ inference_engine: Optional[InferenceManager] = None
 cross_encoder = None  # sentence_transformers.CrossEncoder for re-ranking
 bm25_index = None     # BM25Okapi index for keyword search
 bm25_doc_ids = []     # ChromaDB doc IDs corresponding to BM25 corpus rows
+ollama_available: bool = False
 _discover_response_cache = OrderedDict()  # key -> (timestamp, DiscoverResponse)
 _query_embedding_cache = OrderedDict()    # key -> (timestamp, embedding vector)
 
@@ -425,6 +433,7 @@ async def lifespan(app: FastAPI):
     
     global hf_client
     global inference_engine
+    global ollama_available
 
     # ========================================================================
     # Step 3a: Try Optimized Inference Engine (vLLM/Local/API)
@@ -484,6 +493,20 @@ async def lifespan(app: FastAPI):
             logger.warning(f"⚠️ HuggingFace API not available: {e}")
             logger.warning("   Service will run in 'retrieval-only' mode (no LLM generation)")
             hf_client = None
+
+    # ========================================================================
+    # Step 3c: Initialize Ollama fallback (local generation, no API key needed)
+    # ========================================================================
+    ollama_available = False
+    try:
+        tags_resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=8)
+        if tags_resp.ok:
+            ollama_available = True
+            logger.info(f"✅ Ollama connected at {OLLAMA_BASE_URL} (model: {OLLAMA_MODEL})")
+        else:
+            logger.warning(f"⚠️ Ollama not ready (status={tags_resp.status_code})")
+    except Exception as e:
+        logger.warning(f"⚠️ Ollama unavailable for generation fallback: {e}")
     
     logger.info("=" * 60)
     logger.info("✅ Movie Discovery Assistant is READY!")
@@ -589,6 +612,191 @@ def build_metadata_filter(request: DiscoverRequest) -> Dict[str, Any]:
         return conditions[0]
     else:
         return {"$and": conditions}
+
+
+def _matches_where_filter(meta: Dict[str, Any], where: Optional[Dict[str, Any]]) -> bool:
+    """Evaluate a minimal subset of Chroma where filters for fallback retrieval."""
+    if not where:
+        return True
+
+    if "$and" in where:
+        return all(_matches_where_filter(meta, clause) for clause in where.get("$and", []))
+
+    for key, condition in where.items():
+        value = meta.get(key)
+        if isinstance(condition, dict):
+            for op, target in condition.items():
+                if op == "$gte":
+                    if value is None or float(value) < float(target):
+                        return False
+                elif op == "$lte":
+                    if value is None or float(value) > float(target):
+                        return False
+                elif op == "$eq":
+                    if value != target:
+                        return False
+                else:
+                    return False
+        else:
+            if value != condition:
+                return False
+    return True
+
+
+def _matches_where_document(document: str, where_document: Optional[Dict[str, Any]]) -> bool:
+    """Evaluate a minimal where_document filter for fallback retrieval."""
+    if not where_document:
+        return True
+    if "$contains" in where_document:
+        return str(where_document["$contains"]).lower() in (document or "").lower()
+    return True
+
+
+def _fallback_collection_query(**kwargs) -> Dict[str, List[List[Any]]]:
+    """Fallback query when Chroma persisted index is incompatible with runtime code."""
+    n_results = int(kwargs.get("n_results", 10) or 10)
+    where = kwargs.get("where")
+    where_document = kwargs.get("where_document")
+    query_embeddings = kwargs.get("query_embeddings")
+    query_texts = kwargs.get("query_texts")
+    include = kwargs.get("include")
+
+    requested_include = include[:] if isinstance(include, list) else ["documents", "metadatas", "distances"]
+    for default_key in ["documents", "metadatas", "distances"]:
+        if default_key not in requested_include:
+            requested_include.append(default_key)
+
+    def _as_list(value: Any) -> List[Any]:
+        if isinstance(value, list):
+            return value
+        if value is None:
+            return []
+        return [value]
+
+    try:
+        all_data = vectorstore._collection.get(include=["documents", "metadatas", "embeddings"])
+    except Exception as e:
+        logger.warning(f"Fallback collection scan with embeddings failed: {e}")
+        try:
+            # Some persisted Chroma states fail when requesting embeddings.
+            # Continue with keyword/rating ranking using docs+metadata only.
+            all_data = vectorstore._collection.get(include=["documents", "metadatas"])
+        except Exception as inner_e:
+            logger.warning(f"Fallback collection scan failed: {inner_e}")
+            return {
+                "ids": [[]],
+                "documents": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+                "embeddings": [[]],
+            }
+
+    ids = _as_list(all_data.get("ids", []))
+    documents = _as_list(all_data.get("documents", []))
+    metadatas = _as_list(all_data.get("metadatas", []))
+    embeddings_data = _as_list(all_data.get("embeddings", []))
+
+    if hasattr(embeddings_data, "tolist"):
+        embeddings_data = embeddings_data.tolist()
+
+    row_count = max(len(ids), len(documents), len(metadatas))
+
+    candidate_indices = []
+    for i in range(row_count):
+        meta = metadatas[i] if i < len(metadatas) and metadatas[i] else {}
+        doc = documents[i] if i < len(documents) and documents[i] else ""
+        if not _matches_where_filter(meta, where):
+            continue
+        if not _matches_where_document(doc, where_document):
+            continue
+        candidate_indices.append(i)
+
+    if not candidate_indices:
+        return {
+            "ids": [[]],
+            "documents": [[]],
+            "metadatas": [[]],
+            "distances": [[]],
+            "embeddings": [[]],
+        }
+
+    ranked = []
+    query_vector = None
+    if isinstance(query_embeddings, list) and query_embeddings:
+        query_vector = np.asarray(query_embeddings[0], dtype=np.float32).reshape(-1)
+
+    use_vector_scoring = query_vector is not None and len(embeddings_data) == row_count
+    if use_vector_scoring:
+        sample_embedding = next((e for e in embeddings_data if e is not None), None)
+        sample_embedding_len = None
+        if isinstance(sample_embedding, (list, tuple, np.ndarray)):
+            sample_embedding_len = len(sample_embedding)
+        if sample_embedding_len is None or sample_embedding_len != len(query_vector):
+            logger.warning(
+                "Fallback retrieval using keyword scoring due to embedding size mismatch "
+                f"(query={len(query_vector)}, stored={sample_embedding_len if sample_embedding_len is not None else 'none'})"
+            )
+            use_vector_scoring = False
+
+    if use_vector_scoring:
+        q_norm = float(np.linalg.norm(query_vector))
+        for idx in candidate_indices:
+            emb = embeddings_data[idx]
+            if emb is None:
+                continue
+            v = np.asarray(emb, dtype=np.float32).reshape(-1)
+            if v.size != query_vector.size:
+                continue
+            denom = q_norm * float(np.linalg.norm(v))
+            sim = float(np.dot(query_vector, v) / denom) if denom > 0 else -1.0
+            ranked.append((1.0 - sim, idx))
+
+    if not ranked:
+        query_text = str(query_texts[0]) if isinstance(query_texts, list) and query_texts else ""
+        query_tokens = set(re.findall(r"[a-z0-9]+", query_text.lower()))
+        for idx in candidate_indices:
+            meta = metadatas[idx] if idx < len(metadatas) and metadatas[idx] else {}
+            doc = documents[idx] if idx < len(documents) and documents[idx] else ""
+            searchable = " ".join([
+                doc,
+                str(meta.get("title", "")),
+                str(meta.get("genres", "")),
+                str(meta.get("cast", "")),
+                str(meta.get("director", "")),
+            ]).lower()
+            tokens = set(re.findall(r"[a-z0-9]+", searchable))
+            overlap = len(query_tokens & tokens)
+            rating = float(meta.get("rating", 0) or 0)
+            score = overlap + (rating / 20.0)
+            ranked.append((1.0 / (1.0 + score), idx))
+
+    ranked.sort(key=lambda item: item[0])
+    top = ranked[:n_results]
+    top_indices = [idx for _, idx in top]
+    top_distances = [dist for dist, _ in top]
+
+    result = {
+        "ids": [[ids[i] for i in top_indices]],
+        "documents": [[documents[i] for i in top_indices]],
+        "metadatas": [[metadatas[i] for i in top_indices]],
+        "distances": [top_distances],
+    }
+    if "embeddings" in requested_include:
+        result["embeddings"] = [[embeddings_data[i] for i in top_indices]]
+    return result
+
+
+def _safe_collection_query(**kwargs) -> Dict[str, List[List[Any]]]:
+    """Use Chroma query normally, but auto-fallback on known persisted-index errors."""
+    try:
+        return vectorstore._collection.query(**kwargs)
+    except Exception as e:
+        error_text = str(e).lower()
+        fallback_signals = ["dimensionality", "dimension", "hnsw", "invaliddimension"]
+        if not any(signal in error_text for signal in fallback_signals):
+            raise
+        logger.warning(f"Chroma query fallback activated: {e}")
+        return _fallback_collection_query(**kwargs)
 
 
 def rerank_with_keywords(query: str, results: dict, top_k: int,
@@ -1599,7 +1807,9 @@ def rerank_with_keywords(query: str, results: dict, top_k: int,
     scored.sort(key=lambda x: x[0])
     top_indices = [idx for _, idx in scored[:top_k]]
 
+    ids_row = results.get('ids', [[]])[0] if results.get('ids') else []
     return {
+        'ids':        [[ids_row[i] if i < len(ids_row) else None for i in top_indices]],
         'documents':  [[results['documents'][0][i] for i in top_indices]],
         'metadatas':  [[results['metadatas'][0][i] for i in top_indices]],
         'distances':  [[results['distances'][0][i] for i in top_indices]],
@@ -1791,13 +2001,20 @@ def _is_franchise_match(candidate_title: str, src_core: str, src_lower: str,
 def _merge_results(primary: dict, secondary: dict, limit: int) -> dict:
     """Merge two ChromaDB result dicts, deduplicating by movie title."""
     seen = set()
-    merged = {'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
+    merged = {'ids': [[]], 'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
 
     for src in [primary, secondary]:
+        # Skip if empty or malformed
+        if not src or not src.get('metadatas') or not src['metadatas'][0]:
+            continue
+            
         for i, meta in enumerate(src['metadatas'][0]):
             title = meta.get('title', '')
             if title not in seen and len(merged['documents'][0]) < limit:
                 seen.add(title)
+                # Safely get doc id fallback if missing
+                doc_id = src.get('ids', [[]])[0][i] if src.get('ids') and i < len(src['ids'][0]) else None
+                merged['ids'][0].append(doc_id)
                 merged['documents'][0].append(src['documents'][0][i])
                 merged['metadatas'][0].append(meta)
                 merged['distances'][0].append(src['distances'][0][i])
@@ -1811,7 +2028,7 @@ def _bm25_search(query: str, n_results: int = 30) -> dict:
     Uses the global bm25_index and bm25_doc_ids built at startup.
     """
     if bm25_index is None or not bm25_doc_ids:
-        return {'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
+        return {'ids': [[]], 'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
 
     tokenized_query = query.lower().split()
     bm25_scores = bm25_index.get_scores(tokenized_query)
@@ -1822,7 +2039,7 @@ def _bm25_search(query: str, n_results: int = 30) -> dict:
     top_ids = [bm25_doc_ids[i] for i in top_indices if bm25_scores[i] > 0]
 
     if not top_ids:
-        return {'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
+        return {'ids': [[]], 'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
 
     # Fetch full records from ChromaDB by ID
     records = vectorstore._collection.get(ids=top_ids, include=["documents", "metadatas"])
@@ -1835,6 +2052,7 @@ def _bm25_search(query: str, n_results: int = 30) -> dict:
         distances.append(1.0 / (1.0 + score))
 
     return {
+        'ids': [records['ids']],
         'documents': [records['documents']],
         'metadatas': [records['metadatas']],
         'distances': [distances],
@@ -1849,12 +2067,14 @@ def _rrf_fuse(vec_results: dict, bm25_results: dict, k: int = 60, limit: int = 5
     vec_weight > bm25_weight ensures semantic similarity dominates over keyword overlap.
     """
     # Build title → (meta, doc) mapping and RRF scores
-    title_data = {}   # title → {'meta': ..., 'doc': ..., 'rrf': float}
+    title_data = {}   # title → {'meta': ..., 'doc': ..., 'rrf': float, 'id': str}
 
     for rank, meta in enumerate(vec_results['metadatas'][0]):
         title = meta.get('title', '')
         if title not in title_data:
+            doc_id = vec_results.get('ids', [[]])[0][rank] if vec_results.get('ids') and rank < len(vec_results['ids'][0]) else None
             title_data[title] = {
+                'id': doc_id,
                 'meta': meta,
                 'doc': vec_results['documents'][0][rank],
                 'rrf': 0.0,
@@ -1864,7 +2084,9 @@ def _rrf_fuse(vec_results: dict, bm25_results: dict, k: int = 60, limit: int = 5
     for rank, meta in enumerate(bm25_results['metadatas'][0]):
         title = meta.get('title', '')
         if title not in title_data:
+            doc_id = bm25_results.get('ids', [[]])[0][rank] if bm25_results.get('ids') and rank < len(bm25_results['ids'][0]) else None
             title_data[title] = {
+                'id': doc_id,
                 'meta': meta,
                 'doc': bm25_results['documents'][0][rank],
                 'rrf': 0.0,
@@ -1874,8 +2096,9 @@ def _rrf_fuse(vec_results: dict, bm25_results: dict, k: int = 60, limit: int = 5
     # Sort by RRF score descending, take top `limit`
     sorted_titles = sorted(title_data.items(), key=lambda x: x[1]['rrf'], reverse=True)[:limit]
 
-    merged = {'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
+    merged = {'ids': [[]], 'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
     for title, data in sorted_titles:
+        merged['ids'][0].append(data.get('id'))
         merged['documents'][0].append(data['doc'])
         merged['metadatas'][0].append(data['meta'])
         # Convert RRF score to pseudo-distance (lower = better)
@@ -2378,6 +2601,184 @@ def _get_query_embedding_cached(text: str, is_document: bool = False):
     return vec
 
 
+def _fallback_recommend_from_features(request: DiscoverRequest, query_intent: Optional[Dict[str, Any]]) -> List[MovieResult]:
+    """Heuristic recommender from movie_features.json when Chroma retrieval fails."""
+    if not _movie_feature_records:
+        return []
+
+    def _to_text(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return ", ".join(str(v) for v in value if v)
+        return str(value)
+
+    def _to_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except Exception:
+            return default
+
+    q_lower = request.query.lower()
+    query_tokens = set(re.findall(r"[a-z0-9]+", q_lower))
+
+    genre_hints = set()
+    if request.genre:
+        genre_hints.add(request.genre.lower())
+    if query_intent:
+        intent = query_intent.get("intent")
+        if intent == "genre" and query_intent.get("genre"):
+            genre_hints.add(str(query_intent["genre"]).lower())
+        if intent == "mood":
+            mood_to_genre = {
+                "frightening": "horror",
+                "humorous": "comedy",
+                "romantic": "romance",
+                "cerebral": "science fiction",
+                "intense": "thriller",
+                "dark": "thriller",
+                "uplifting": "drama",
+                "emotional": "drama",
+            }
+            mood = str(query_intent.get("mood", "")).lower()
+            if mood in mood_to_genre:
+                genre_hints.add(mood_to_genre[mood])
+
+    keyword_to_genre = {
+        "horror": "horror",
+        "scary": "horror",
+        "comedy": "comedy",
+        "funny": "comedy",
+        "action": "action",
+        "thriller": "thriller",
+        "drama": "drama",
+        "sci fi": "science fiction",
+        "science fiction": "science fiction",
+        "romance": "romance",
+        "animation": "animation",
+    }
+    for keyword, mapped in keyword_to_genre.items():
+        if keyword in q_lower:
+            genre_hints.add(mapped)
+
+    scored = []
+    for movie in _movie_feature_records:
+        title = _to_text(movie.get("title")).strip()
+        if not title:
+            continue
+
+        year = movie.get("release_year")
+        rating = _to_float(movie.get("vote_average"), 0.0)
+        popularity = _to_float(movie.get("popularity"), 0.0)
+        genres_text = _to_text(movie.get("genres") or movie.get("genre_primary")).lower()
+
+        if request.min_year is not None and (year is None or int(year) < int(request.min_year)):
+            continue
+        if request.max_year is not None and (year is None or int(year) > int(request.max_year)):
+            continue
+        if request.min_rating is not None and rating < float(request.min_rating):
+            continue
+
+        genre_match = False
+        if genre_hints:
+            genre_match = any(hint in genres_text for hint in genre_hints)
+            if not genre_match:
+                continue
+
+        searchable = " ".join([
+            title,
+            _to_text(movie.get("overview")),
+            _to_text(movie.get("wiki_summary")),
+            _to_text(movie.get("keywords")),
+            _to_text(movie.get("cast_names")),
+            _to_text(movie.get("director")),
+            _to_text(movie.get("mood_tags")),
+            _to_text(movie.get("style_tags")),
+            _to_text(movie.get("genres")),
+        ]).lower()
+        doc_tokens = set(re.findall(r"[a-z0-9]+", searchable))
+        overlap = len(query_tokens & doc_tokens)
+
+        score = (overlap * 2.5) + (1.5 if genre_match else 0.0) + (rating / 2.0) + min(popularity / 100.0, 2.0)
+        scored.append((score, movie))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+
+    if not scored:
+        # Last-resort: top rated titles after numeric filters.
+        for movie in _movie_feature_records:
+            title = _to_text(movie.get("title")).strip()
+            if not title:
+                continue
+            year = movie.get("release_year")
+            rating = _to_float(movie.get("vote_average"), 0.0)
+            popularity = _to_float(movie.get("popularity"), 0.0)
+            if request.min_year is not None and (year is None or int(year) < int(request.min_year)):
+                continue
+            if request.max_year is not None and (year is None or int(year) > int(request.max_year)):
+                continue
+            if request.min_rating is not None and rating < float(request.min_rating):
+                continue
+            score = (rating * max(popularity, 0.01))
+            scored.append((score, movie))
+        scored.sort(key=lambda item: item[0], reverse=True)
+
+    fallback_movies: List[MovieResult] = []
+    seen_titles = set()
+    for score, movie in scored:
+        title = _to_text(movie.get("title")).strip()
+        if not title or title in seen_titles:
+            continue
+        seen_titles.add(title)
+
+        genres_value = movie.get("genres") or movie.get("genre_primary")
+        genres_out = _to_text(genres_value)
+        director_value = movie.get("director")
+        if isinstance(director_value, list):
+            director_out = _to_text(director_value[:1])
+        else:
+            director_out = _to_text(director_value)
+
+        fallback_movies.append(
+            MovieResult(
+                tmdb_id=movie.get("id"),
+                title=title,
+                year=movie.get("release_year"),
+                rating=_to_float(movie.get("vote_average"), None),
+                genres=genres_out,
+                director=director_out,
+                runtime=movie.get("runtime"),
+                description=_to_text(movie.get("overview") or movie.get("wiki_summary") or movie.get("tagline")),
+                relevance_score=round(min(0.99, max(0.05, float(score) / 20.0)), 3),
+                recommendation_reason="Matched via local metadata fallback",
+            )
+        )
+
+        if len(fallback_movies) >= request.top_k:
+            break
+
+    return fallback_movies
+
+
+def _generate_with_ollama(prompt: str, max_new_tokens: int = 512, temperature: float = 0.7) -> str:
+    """Generate text using local Ollama server as a no-key fallback backend."""
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "num_predict": max_new_tokens,
+            "temperature": temperature,
+            "top_p": 0.9,
+            "repeat_penalty": 1.1,
+        },
+    }
+    response = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=180)
+    response.raise_for_status()
+    data = response.json()
+    return data.get("response", "").strip()
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -2391,6 +2792,7 @@ async def health_check():
     """
     hf_ok = hf_client is not None
     chroma_ok = vectorstore is not None
+    ollama_ok = bool(ollama_available)
     movie_count = 0
     
     if vectorstore:
@@ -2406,13 +2808,16 @@ async def health_check():
     elif hf_client:
         actual_model = LLM_MODEL
         actual_backend = "hf_api"
+    elif ollama_ok:
+        actual_model = OLLAMA_MODEL
+        actual_backend = "ollama"
     else:
         actual_model = "none"
         actual_backend = "none"
 
     return HealthResponse(
-        status="healthy" if (hf_ok and chroma_ok) else "degraded",
-        ollama_connected=hf_ok,  # Reusing field name for compatibility
+        status="healthy" if ((hf_ok or inference_engine is not None or ollama_ok) and chroma_ok) else "degraded",
+        ollama_connected=ollama_ok,
         chroma_loaded=chroma_ok,
         total_movies=movie_count,
         embedding_model=EMBEDDING_MODEL,
@@ -2788,7 +3193,7 @@ async def discover_movies(request: DiscoverRequest):
                 # a making-of/behind-the-scenes documentary rather than the actual show/movie.
                 found_genres_lower = ''
                 try:
-                    found_lookup = vectorstore._collection.query(
+                    found_lookup = _safe_collection_query(
                         query_embeddings=[temp_embedding],
                         n_results=1,
                         where_document={"$contains": similar_to_title},
@@ -2845,7 +3250,7 @@ async def discover_movies(request: DiscoverRequest):
                     # as originally encoded — balanced across plot, genres, cast, moods.
                     stored_query_embedding = None
                     try:
-                        src_lookup = vectorstore._collection.query(
+                        src_lookup = _safe_collection_query(
                             query_embeddings=[temp_embedding],
                             n_results=1,
                             where_document={"$contains": similar_to_title},
@@ -3006,11 +3411,12 @@ async def discover_movies(request: DiscoverRequest):
         elif similar_to_title:
             query_embedding = _get_query_embedding_cached(search_query, is_document=True)
         else:
-            query_embedding = _get_query_embedding_cached(BGE_QUERY_PREFIX + search_query)
+            query_text = BGE_QUERY_PREFIX + search_query if "bge" in EMBEDDING_MODEL.lower() else search_query
+            query_embedding = _get_query_embedding_cached(query_text)
 
         # ── Dual retrieval ──────────────────────────────────────────
         # 1) Standard vector search (semantic similarity)
-        vec_results = vectorstore._collection.query(
+        vec_results = _safe_collection_query(
             query_embeddings=[query_embedding],
             n_results=n_candidates,
             where=metadata_filter
@@ -3043,7 +3449,7 @@ async def discover_movies(request: DiscoverRequest):
                         quality_filter = {"$and": metadata_filter["$and"] + [{"rating": {"$gte": 7.5}}]}
                     else:
                         quality_filter = {"$and": [metadata_filter, {"rating": {"$gte": 7.5}}]}
-                quality_results = vectorstore._collection.query(
+                quality_results = _safe_collection_query(
                     query_embeddings=[query_embedding],
                     n_results=50,
                     where=quality_filter,
@@ -3215,7 +3621,7 @@ async def discover_movies(request: DiscoverRequest):
                     genre_meta_filter = {"rating": {"$gte": 7.0}}
                 # Use where_document to filter by genre string (since genres is stored
                 # as comma-separated text in the document, not as a list metadata field)
-                genre_doc_results = vectorstore._collection.query(
+                genre_doc_results = _safe_collection_query(
                     query_embeddings=[query_embedding],
                     n_results=80,
                     where=genre_meta_filter,
@@ -3246,7 +3652,7 @@ async def discover_movies(request: DiscoverRequest):
                             sec_meta = {"$and": [{"rating": {"$gte": 7.0}}, metadata_filter]}
                     else:
                         sec_meta = {"rating": {"$gte": 7.0}}
-                    sec_results = vectorstore._collection.query(
+                    sec_results = _safe_collection_query(
                         query_embeddings=[query_embedding],
                         n_results=40,
                         where=sec_meta,
@@ -3275,7 +3681,7 @@ async def discover_movies(request: DiscoverRequest):
                         mus_kw_filter = {"$and": [{"rating": {"$gte": 6.5}}, metadata_filter]}
                 # Search for "musical" as a keyword in document text
                 for mus_term in ["musical", "singing", "dancing", "Broadway"]:
-                    mus_results = vectorstore._collection.query(
+                    mus_results = _safe_collection_query(
                         query_embeddings=[query_embedding],
                         n_results=30,
                         where=mus_kw_filter,
@@ -3302,7 +3708,7 @@ async def discover_movies(request: DiscoverRequest):
                             sim_genre_filter = {"$and": [{"rating": {"$gte": 6.5}}] + metadata_filter["$and"]}
                         else:
                             sim_genre_filter = {"$and": [{"rating": {"$gte": 6.5}}, metadata_filter]}
-                    sim_genre_results = vectorstore._collection.query(
+                    sim_genre_results = _safe_collection_query(
                         query_embeddings=[query_embedding],
                         n_results=40,
                         where=sim_genre_filter,
@@ -3322,7 +3728,7 @@ async def discover_movies(request: DiscoverRequest):
             src_director = similar_src_meta.get('director', '').strip()
             if src_director and len(src_director) > 2:
                 try:
-                    dir_results = vectorstore._collection.query(
+                    dir_results = _safe_collection_query(
                         query_embeddings=[query_embedding],
                         n_results=15,
                         where={"rating": {"$gte": 6.0}},
@@ -3342,7 +3748,7 @@ async def discover_movies(request: DiscoverRequest):
             for actor in lead_actors:
                 if len(actor) > 3:
                     try:
-                        cast_results = vectorstore._collection.query(
+                        cast_results = _safe_collection_query(
                             query_embeddings=[query_embedding],
                             n_results=10,
                             where={"rating": {"$gte": 6.5}},
@@ -3437,6 +3843,7 @@ async def discover_movies(request: DiscoverRequest):
                         # Take top 50 by quality
                         top_curated_indices = [idx for _, idx in scored_curated[:50]]
                         curated_results = {
+                            'ids': [[curated_all['ids'][i] for i in top_curated_indices]],
                             'documents': [[curated_all['documents'][i] for i in top_curated_indices]],
                             'metadatas': [[curated_all['metadatas'][i] for i in top_curated_indices]],
                             # Assign pseudo-distances based on quality rank (lower = better)
@@ -3487,6 +3894,7 @@ async def discover_movies(request: DiscoverRequest):
                     # of "classic 80s" vs "critically acclaimed 80s").
                     base_dist = 0.10 if is_meta_quality_intent else 0.40
                     mq_results = {
+                        'ids': [[mq_all['ids'][i] for i in top_mq_indices]],
                         'documents': [[mq_all['documents'][i] for i in top_mq_indices]],
                         'metadatas': [[mq_all['metadatas'][i] for i in top_mq_indices]],
                         'distances': [[base_dist + 0.003 * rank for rank in range(len(top_mq_indices))]],
@@ -3530,6 +3938,7 @@ async def discover_movies(request: DiscoverRequest):
                     scored_hg.sort(key=lambda x: -x[0])
                     top_hg = [idx for _, idx in scored_hg[:60]]
                     hg_results = {
+                        'ids': [[hg_all['ids'][i] for i in top_hg]],
                         'documents': [[hg_all['documents'][i] for i in top_hg]],
                         'metadatas': [[hg_all['metadatas'][i] for i in top_hg]],
                         'distances': [[0.35 + 0.003 * rank for rank in range(len(top_hg))]],
@@ -3579,6 +3988,7 @@ async def discover_movies(request: DiscoverRequest):
                     else:
                         fl_rating_filter = {"$and": [{"rating": {"$gte": 7.0}}, metadata_filter]}
                 fl_all_docs = []
+                fl_all_ids = []
                 fl_all_metas = []
                 fl_seen_titles = set()
                 for fl_term in foreign_search_terms:
@@ -3594,6 +4004,7 @@ async def discover_movies(request: DiscoverRequest):
                                 if ftitle not in fl_seen_titles:
                                     fl_seen_titles.add(ftitle)
                                     fl_all_docs.append(fl_results['documents'][fi])
+                                    fl_all_ids.append(fl_results['ids'][fi])
                                     fl_all_metas.append(fmeta)
                     except Exception:
                         continue
@@ -3607,6 +4018,7 @@ async def discover_movies(request: DiscoverRequest):
                     scored_fl.sort(key=lambda x: -x[0])
                     top_fl = [idx for _, idx in scored_fl[:60]]
                     fl_curated = {
+                        'ids': [[fl_all_ids[i] for i in top_fl]],
                         'documents': [[fl_all_docs[i] for i in top_fl]],
                         'metadatas': [[fl_all_metas[i] for i in top_fl]],
                         'distances': [[0.10 + 0.003 * rank for rank in range(len(top_fl))]],
@@ -3629,14 +4041,14 @@ async def discover_movies(request: DiscoverRequest):
             n_candidates = max(n_candidates, 40)
             logger.info(f"   Name phrase detected: '{name_phrase}' — running document search (n={n_candidates})")
             try:
-                doc_results = vectorstore._collection.query(
+                doc_results = _safe_collection_query(
                     query_embeddings=[query_embedding],
                     n_results=n_candidates,
                     where=metadata_filter,
                     where_document={"$contains": name_phrase},
                 )
             except Exception:
-                doc_results = {'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
+                doc_results = {'ids': [[]], 'documents': [[]], 'metadatas': [[]], 'distances': [[]]}
 
             # Merge: document-matched results first (more precise for name queries)
             results = _merge_results(doc_results, vec_results, n_candidates)
@@ -3745,7 +4157,7 @@ async def discover_movies(request: DiscoverRequest):
                         continue
                     searched_terms.add(term)
                     try:
-                        mood_results = vectorstore._collection.query(
+                        mood_results = _safe_collection_query(
                             query_embeddings=[query_embedding],
                             n_results=15,
                             where=metadata_filter,
@@ -3759,6 +4171,8 @@ async def discover_movies(request: DiscoverRequest):
         # ── Array bounds to cap execution time ──────────────────────
         if results['documents'][0] and len(results['documents'][0]) > RERANK_MAX_CANDIDATES:
             logger.info(f"   Capping candidates from {len(results['documents'][0])} to {RERANK_MAX_CANDIDATES} before fallback/CE")
+            if results.get('ids') and results['ids']:
+                results['ids'][0] = results['ids'][0][:RERANK_MAX_CANDIDATES]
             results['documents'][0] = results['documents'][0][:RERANK_MAX_CANDIDATES]
             results['metadatas'][0] = results['metadatas'][0][:RERANK_MAX_CANDIDATES]
             results['distances'][0] = results['distances'][0][:RERANK_MAX_CANDIDATES]
@@ -3816,6 +4230,8 @@ async def discover_movies(request: DiscoverRequest):
                 # Cap the maximum candidates specifically hitting the CrossEncoder
                 if len(results['documents'][0]) > CROSS_ENCODER_MAX_CANDIDATES:
                     logger.info(f"   Hard-capping CrossEncoder candidates to {CROSS_ENCODER_MAX_CANDIDATES}")
+                    if results.get('ids') and results['ids']:
+                        results['ids'][0] = results['ids'][0][:CROSS_ENCODER_MAX_CANDIDATES]
                     results['documents'][0] = results['documents'][0][:CROSS_ENCODER_MAX_CANDIDATES]
                     results['metadatas'][0] = results['metadatas'][0][:CROSS_ENCODER_MAX_CANDIDATES]
                     results['distances'][0] = results['distances'][0][:CROSS_ENCODER_MAX_CANDIDATES]
@@ -3887,6 +4303,7 @@ async def discover_movies(request: DiscoverRequest):
             # Only apply if we still have enough candidates to fill top_k
             if len(franchise_keep) >= request.top_k:
                 results = {
+                    'ids': [[results['ids'][0][i] for i in franchise_keep]],
                     'documents': [[results['documents'][0][i] for i in franchise_keep]],
                     'metadatas': [[results['metadatas'][0][i] for i in franchise_keep]],
                     'distances': [[results['distances'][0][i] for i in franchise_keep]],
@@ -3901,6 +4318,7 @@ async def discover_movies(request: DiscoverRequest):
                 if genre_lower in meta.get('genres', '').lower()
             ]
             results = {
+                'ids': [[results['ids'][0][i] for i in keep]],
                 'documents': [[results['documents'][0][i] for i in keep]],
                 'metadatas': [[results['metadatas'][0][i] for i in keep]],
                 'distances': [[results['distances'][0][i] for i in keep]],
@@ -3932,7 +4350,7 @@ async def discover_movies(request: DiscoverRequest):
             # If not found in current results, search for it
             if src_meta is None:
                 try:
-                    src_search = vectorstore._collection.query(
+                    src_search = _safe_collection_query(
                         query_embeddings=[query_embedding],
                         n_results=3,
                         where_document={"$contains": similar_to_title.title()},
@@ -4005,6 +4423,7 @@ async def discover_movies(request: DiscoverRequest):
                     src_meta, meta, query_title_core)
             ]
             results = {
+                'ids': [[results['ids'][0][i] for i in keep]],
                 'documents': [[results['documents'][0][i] for i in keep]],
                 'metadatas': [[results['metadatas'][0][i] for i in keep]],
                 'distances': [[results['distances'][0][i] for i in keep]],
@@ -4029,6 +4448,7 @@ async def discover_movies(request: DiscoverRequest):
                         dir_keep.append(i)
                     if len(dir_keep) >= request.top_k:
                         results = {
+                            'ids': [[results['ids'][0][i] for i in dir_keep]],
                             'documents': [[results['documents'][0][i] for i in dir_keep]],
                             'metadatas': [[results['metadatas'][0][i] for i in dir_keep]],
                             'distances': [[results['distances'][0][i] for i in dir_keep]],
@@ -4043,9 +4463,25 @@ async def discover_movies(request: DiscoverRequest):
     except Exception as e:
         import traceback
         logger.error(f"❌ Retrieval error: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Retrieval failed: {str(e)}")
+        results = {
+            'ids': [[]],
+            'documents': [[]],
+            'metadatas': [[]],
+            'distances': [[]],
+        }
     
     if not results['documents'][0]:
+        fallback_movies = _fallback_recommend_from_features(request, query_intent)
+        if fallback_movies:
+            logger.info(f"   Local metadata fallback returned {len(fallback_movies)} movies")
+            return DiscoverResponse(
+                query=request.query,
+                answer="I used a local metadata fallback because vector retrieval was unavailable. Here are strong matches:",
+                recommended_movies=fallback_movies,
+                model_used="metadata_fallback",
+                retrieval_count=len(fallback_movies),
+            )
+
         return DiscoverResponse(
             query=request.query,
             answer="I couldn't find any movies matching your criteria. Try broadening your search!",
@@ -4087,7 +4523,7 @@ async def discover_movies(request: DiscoverRequest):
     
     llm_reasons = {}
 
-    if inference_engine is None and hf_client is None:
+    if inference_engine is None and hf_client is None and not ollama_available:
         # Fallback: Return retrieval results without LLM.
         # The frontend renders movie cards directly; no text banner needed.
         answer = None
@@ -4139,7 +4575,7 @@ Be conversational and include titles, years, and why they match."""
             else:
                 answer = f"Error: {str(e)}"
                 generation_backend = "error"
-    else:
+    elif hf_client is not None:
         # Build RAG prompt
         prompt = f"""You are a helpful movie recommendation assistant. Your job is to recommend movies based on the user's preferences.
 
@@ -4175,6 +4611,25 @@ Be conversational and enthusiastic! Cite the movie titles from the context above
             for i, meta in enumerate(results['metadatas'][0][:3]):
                 answer += f"{i+1}. {meta['title']} ({meta.get('year', 'N/A')})\n"
         generation_backend = "hf_api"
+    else:
+        prompt = f"""You are a helpful movie recommendation assistant.
+
+Here are relevant movies:
+
+{context}
+
+User Query: {request.query}
+
+Recommend movies from the list above and explain why each one matches.
+"""
+        try:
+            logger.info(f"🤖 Generating response with Ollama ({OLLAMA_MODEL})...")
+            raw_answer = _generate_with_ollama(prompt, max_new_tokens=512, temperature=0.7)
+            answer, llm_reasons = _build_grounded_answer(raw_answer, results)
+        except Exception as e:
+            logger.error(f"Ollama generation error: {e}")
+            answer = None
+        generation_backend = "ollama"
     
     # ========================================================================
     # Step 4: FORMAT RESPONSE
@@ -4221,8 +4676,13 @@ Be conversational and enthusiastic! Cite the movie titles from the context above
     movies = []
     for i, meta in enumerate(results['metadatas'][0]):
         distance = results['distances'][0][i]
+        
+        # Safely get doc_id exactly how we do in merge
+        doc_id = results.get('ids', [[]])[0][i] if results.get('ids') and i < len(results['ids'][0]) else None
+
         relevance = round(1 - distance, 3)
         movies.append(MovieResult(
+            tmdb_id=int(doc_id) if str(doc_id).isdigit() else None,
             title=meta.get('title', 'Unknown'),
             year=meta.get('year'),
             rating=meta.get('rating'),

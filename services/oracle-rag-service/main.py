@@ -878,7 +878,17 @@ async def lifespan(app: FastAPI):
         logger.info(f"ChromaDB connected: {doc_count} documents in '{CHROMADB['collection_name']}'")
     except Exception as e:
         logger.error(f"ChromaDB initialization failed: {e}")
-        collection = None
+        logger.warning("Falling back to in-memory Chroma collection (persisted index unavailable)")
+        try:
+            fallback_client = chromadb.EphemeralClient()
+            collection = fallback_client.get_or_create_collection(
+                name=CHROMADB["collection_name"],
+                metadata={"hnsw:space": CHROMADB["hnsw_space"]},
+            )
+            logger.warning("Using in-memory ChromaDB fallback; persisted subtitle index is not loaded")
+        except Exception as fallback_error:
+            logger.error(f"ChromaDB fallback initialization failed: {fallback_error}")
+            collection = None
 
     # 3. Connect to Ollama
     logger.info(f"Connecting to Ollama at {OLLAMA_BASE_URL}...")
@@ -931,8 +941,10 @@ async def health_check():
         except Exception:
             pass
 
+    is_ready = bool(collection is not None and embedder is not None and ollama_client and ollama_client.connected)
+
     return HealthResponse(
-        status="healthy" if ollama_client and ollama_client.connected else "degraded",
+        status="healthy" if is_ready else "degraded",
         ollama_connected=bool(ollama_client and ollama_client.connected),
         chroma_documents=doc_count,
         embedding_model=EMBEDDING["model_name"],
