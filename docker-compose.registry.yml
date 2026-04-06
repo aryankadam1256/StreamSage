@@ -1,0 +1,29 @@
+# Registry-first override for pull-based deployments
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml --env-file .env.deploy pull
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml --env-file .env.deploy up -d
+
+services:
+  oracle-rag-service:
+    image: ${REGISTRY_USER}/streamsage-oracle-rag-service:${IMAGE_TAG}
+    build: null
+
+  binge-service:
+    image: ${REGISTRY_USER}/streamsage-binge-service:${IMAGE_TAG}
+    build: null
+
+  sentiment-service:
+    image: ${REGISTRY_USER}/streamsage-sentiment-service:${IMAGE_TAG}
+    build: null
+
+  movie-assistant-service:
+    image: ${REGISTRY_USER}/streamsage-movie-assistant-service:${IMAGE_TAG}
+    build: null
+
+  gateway:
+    image: ${REGISTRY_USER}/streamsage-gateway:${IMAGE_TAG}
+    build: null
+
+  frontend:
+    image: ${REGISTRY_USER}/streamsage-frontend:${IMAGE_TAG}
+    build: null
