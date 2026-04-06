@@ -27,7 +27,7 @@ langchain-core==0.3.6
 langchain-chroma==0.1.4
 
 # --- Vector Database ---
-chromadb==0.5.7
+chromadb==0.4.22
 
 # --- Embeddings (runs locally, no API needed) ---
 sentence-transformers==3.1.1
@@ -42,5 +42,5 @@ httpx==0.27.2
 # --- Utilities ---
 numpy>=1.24.0
 python-dotenv==1.0.1
-pydantic==2.9.2
-pydantic-settings==2.5.2
+pydantic==2.8.2
+pydantic-settings==2.4.0

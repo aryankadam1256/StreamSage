@@ -19,7 +19,10 @@ WORKDIR /app
 
 # Copy requirements and install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Use BuildKit caching to dramatically speed up Python ML library installations!
+# This prevents re-downloading PyTorch (2GB+) if requirements.txt changes slightly.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # =============================================================================
 # Production Stage
@@ -45,7 +48,7 @@ RUN mkdir -p /app/data/chromadb /app/fine_tuning/outputs
 EXPOSE 8004
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')" || exit 1
 
 # Run the service

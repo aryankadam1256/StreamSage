@@ -16,8 +16,6 @@
 #   docker-compose down           # Stop all services
 # =============================================================================
 
-version: '3.8'
-
 services:
   # ---------------------------------------------------------------------------
   # Ollama - Local LLM Server
@@ -144,12 +142,19 @@ services:
       - "8004:8004"
     environment:
       - HF_API_TOKEN=${HF_API_TOKEN}
+      - HF_HUB_DISABLE_XET=1
+      - HF_HUB_DOWNLOAD_TIMEOUT=600
+      - HF_HUB_ETAG_TIMEOUT=600
+      - EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
       - INFERENCE_BACKEND=api
       - LOCAL_MODEL_PATH=
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3:8b
       - CHROMA_DB_PATH=/app/data/chroma_db
       - LOG_LEVEL=INFO
     volumes:
       - ./services/movie-assistant-service/data/chroma_db:/app/data/chroma_db
+      - movie_hf_cache:/root/.cache/huggingface
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
@@ -200,7 +205,7 @@ services:
       dockerfile: Dockerfile
     container_name: streamsage-frontend
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - VITE_API_URL=http://localhost:8000/api/v1
     depends_on:
@@ -213,3 +218,6 @@ services:
 volumes:
   ollama_data:
     name: streamsage-ollama-data
+  movie_hf_cache:
+    external: true
+    name: streamsage-movie-hf-cache
