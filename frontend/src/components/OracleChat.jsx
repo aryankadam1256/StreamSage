@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Square, Clock, Copy, Check, ChevronDown, ChevronUp, Loader2, Rewind, FastForward, Eye, EyeOff } from 'lucide-react'
-import { askOracleStream, getOracleSuggestions } from '../api'
+import { askOracle, askOracleStream, getOracleSuggestions } from '../api'
 import ElasticSlider from './ui/ElasticSlider'
 import ScrollRevealText from './ui/ScrollRevealText'
 
@@ -66,10 +66,11 @@ function CopyButton({ text }) {
 function OracleAnswer({ entry }) {
     const [showSources, setShowSources] = useState(false)
     const sourceCount = entry.response.sources?.length || 0
+    const safeAnswer = (entry.response.answer || '').trim() || 'Oracle returned no text for this question. Please retry.'
     return (
         <div className="bg-brand-surface border border-brand-border-subtle rounded-xl overflow-hidden">
             <div className="px-4 py-3.5">
-                <ScrollRevealText text={entry.response.answer}
+                <ScrollRevealText text={safeAnswer}
                     className="text-text-warm text-sm leading-relaxed" />
             </div>
             <div className="flex items-center gap-3 px-4 py-2 border-t border-brand-border-subtle">
@@ -83,7 +84,7 @@ function OracleAnswer({ entry }) {
                         {sourceCount} source{sourceCount !== 1 ? 's' : ''}
                     </button>
                 )}
-                <div className="ml-auto"><CopyButton text={entry.response.answer} /></div>
+                <div className="ml-auto"><CopyButton text={safeAnswer} /></div>
             </div>
             <AnimatePresence>
                 {showSources && sourceCount > 0 && (
@@ -104,6 +105,7 @@ export default function OracleChat({ movieTitle, movieRuntime }) {
     const [alreadyWatched, setAlreadyWatched] = useState(false)
     const [chatHistory, setChatHistory] = useState([])
     const [streaming, setStreaming] = useState(false)
+    const [recovering, setRecovering] = useState(false)
     const [streamTokens, setStreamTokens] = useState('')
     const [streamSources, setStreamSources] = useState([])
     const [error, setError] = useState(null)
@@ -113,6 +115,21 @@ export default function OracleChat({ movieTitle, movieRuntime }) {
     const bottomRef = useRef(null)
     const streamTokensRef = useRef('')
     const streamSourcesRef = useRef([])
+    const watchdogRef = useRef(null)
+
+    const clearWatchdog = () => {
+        if (watchdogRef.current) {
+            clearTimeout(watchdogRef.current)
+            watchdogRef.current = null
+        }
+    }
+
+    const armWatchdog = (onTimeout) => {
+        clearWatchdog()
+        watchdogRef.current = setTimeout(() => {
+            onTimeout?.()
+        }, 120000)
+    }
 
     useEffect(() => {
         if (!movieId) return
@@ -122,6 +139,7 @@ export default function OracleChat({ movieTitle, movieRuntime }) {
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chatHistory, streamTokens])
     useEffect(() => { streamTokensRef.current = streamTokens }, [streamTokens])
     useEffect(() => { streamSourcesRef.current = streamSources }, [streamSources])
+    useEffect(() => () => clearWatchdog(), [])
 
     const buildHistory = useCallback(() =>
         chatHistory.flatMap(entry => [
@@ -129,29 +147,76 @@ export default function OracleChat({ movieTitle, movieRuntime }) {
             { role: 'oracle', content: entry.response.answer },
         ]), [chatHistory])
 
+    const recoverWithNonStreamAsk = useCallback(async (q, ts, fallbackError) => {
+        setRecovering(true)
+        try {
+            const data = await askOracle(q, movieId, ts, buildHistory(), alreadyWatched)
+            const answer = (data?.answer || '').trim()
+            if (!answer) {
+                setError(fallbackError || 'Oracle returned an empty response. Please retry.')
+                return
+            }
+            setChatHistory(prev => [...prev, {
+                query: q,
+                response: {
+                    answer,
+                    sources: data?.sources || [],
+                    model_used: data?.model_used || 'retrieval-only',
+                    query_time_ms: data?.query_time_ms ?? null,
+                },
+            }])
+            setError(null)
+            setQuery('')
+        } catch (e) {
+            setError((fallbackError ? `${fallbackError} ` : '') + (e?.message || 'Oracle fallback request failed.'))
+        } finally {
+            setRecovering(false)
+            setStreaming(false)
+            setStreamTokens('')
+            setStreamSources([])
+        }
+    }, [alreadyWatched, buildHistory, movieId])
+
     const handleAsk = (e) => {
         e?.preventDefault()
         const q = query.trim()
         if (!q || !movieId.trim() || streaming) return
         setStreaming(true); setStreamTokens(''); setStreamSources([]); setError(null)
         const ts = !alreadyWatched && timestamp > 0 ? String(timestamp) : undefined
+
+        const handleWatchdogTimeout = () => {
+            abortRef.current?.abort()
+            recoverWithNonStreamAsk(q, ts, 'Oracle stream timed out. Retrying without streaming.')
+        }
+
+        armWatchdog(handleWatchdogTimeout)
         const controller = askOracleStream(q, movieId, ts, buildHistory(), alreadyWatched, {
-            onSources: (sources) => setStreamSources(sources),
-            onToken: (content) => setStreamTokens(prev => prev + content),
+            onSources: (sources) => { setStreamSources(sources); armWatchdog(handleWatchdogTimeout) },
+            onToken: (content) => { setStreamTokens(prev => prev + content); armWatchdog(handleWatchdogTimeout) },
             onDone: (meta) => {
+                clearWatchdog()
+                const finalAnswer = (streamTokensRef.current || '').trim()
+                if (!finalAnswer) {
+                    recoverWithNonStreamAsk(q, ts, 'Oracle stream completed without answer.')
+                    return
+                }
                 setChatHistory(prev => [...prev, {
                     query: q,
-                    response: { answer: streamTokensRef.current, sources: streamSourcesRef.current,
+                    response: { answer: finalAnswer, sources: streamSourcesRef.current,
                         model_used: meta.model_used, query_time_ms: meta.query_time_ms },
                 }])
                 setStreamTokens(''); setStreamSources([]); setStreaming(false); setQuery('')
             },
-            onError: (msg) => { setError(msg || 'Stream failed'); setStreaming(false); setStreamTokens('') },
+            onError: (msg) => {
+                clearWatchdog()
+                recoverWithNonStreamAsk(q, ts, msg || 'Oracle stream failed.')
+            },
         })
         abortRef.current = controller
     }
 
     const handleStop = () => {
+        clearWatchdog()
         abortRef.current?.abort()
         if (streamTokensRef.current) {
             setChatHistory(prev => [...prev, {
@@ -269,6 +334,12 @@ export default function OracleChat({ movieTitle, movieRuntime }) {
                                 )}
                             </div>
                         </motion.div>
+                    )}
+
+                    {recovering && (
+                        <div className="px-3 py-2.5 rounded-lg bg-brand-card border border-brand-border-subtle text-text-muted text-sm">
+                            Stream stalled. Retrying with direct Oracle request...
+                        </div>
                     )}
 
                     {error && (

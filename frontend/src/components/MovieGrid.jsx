@@ -7,7 +7,7 @@ export default function MovieGrid({ movies, onMovieClick }) {
         <div className="flex flex-col gap-6">
             {movies.map((movie, idx) => (
                 <MovieCard
-                    key={`${movie.title}-${idx}`}
+                    key={movie.tmdb_id || `${movie.title}-${idx}`}
                     movie={movie}
                     index={idx}
                     onClick={onMovieClick}

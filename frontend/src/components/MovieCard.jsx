@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Star, User, Tag, ChevronRight, Sparkles } from 'lucide-react'
+import { useMovieImages } from '../hooks/useMovieImages'
 
 export default function MovieCard({ movie, index = 0, onClick }) {
     const genre = movie.genres || movie.genre
@@ -7,6 +8,8 @@ export default function MovieCard({ movie, index = 0, onClick }) {
     
     // Alternate sides for AI take based on index
     const isEven = index % 2 === 0;
+    const images = useMovieImages(movie.tmdb_id, movie.title, movie.year);
+    const fallbackTitle = (movie.title || 'Untitled').toUpperCase();
 
     return (
         <motion.article
@@ -18,6 +21,28 @@ export default function MovieCard({ movie, index = 0, onClick }) {
                        hover:bg-brand-card hover:border-brand-gold/15 cursor-pointer transition-all duration-200 
                        shadow-card hover:shadow-card-hover flex flex-col md:flex-row overflow-hidden"
         >
+            {/* Poster Side */}
+            <div className={`w-full md:w-32 lg:w-48 shrink-0 bg-brand-surface border-b md:border-b-0 md:border-r border-brand-border-subtle relative overflow-hidden flex items-center justify-center text-text-muted text-sm ${!isEven ? 'md:order-1' : ''}`}>
+                {images.poster ? (
+                    <img 
+                      src={images.poster} 
+                      alt={movie.title} 
+                      className="w-full h-full object-cover aspect-[2/3] md:aspect-auto" 
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
+                ) : images.loading ? (
+                    <div className="w-full h-full min-h-[240px] md:min-h-0 animate-pulse bg-gradient-to-br from-brand-card to-brand-surface" />
+                ) : (
+                    <div className="w-full h-full min-h-[240px] md:min-h-0 bg-gradient-to-br from-brand-surface via-brand-card to-brand-surface p-4 flex flex-col justify-end">
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-brand-gold/70 mb-2">StreamSage</div>
+                        <div className="text-sm font-semibold leading-snug text-text-warm line-clamp-4">{fallbackTitle}</div>
+                        {movie.year && <div className="text-xs text-text-dim mt-2">{movie.year}</div>}
+                    </div>
+                )}
+            </div>
+
             {/* Movie Info Side */}
             <div className={`flex flex-col flex-1 p-5 ${!isEven ? 'md:order-2' : ''}`}>
                 <div className="flex items-start justify-between gap-3 mb-3">

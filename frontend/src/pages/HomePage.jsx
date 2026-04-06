@@ -1,12 +1,19 @@
 import { motion } from 'framer-motion'
+import { useEffect } from 'react'
 import { Film } from 'lucide-react'
 import SearchHero from '../components/SearchHero'
 import LLMAnswerBanner from '../components/LLMAnswerBanner'
 import MovieGrid from '../components/MovieGrid'
+import { prefetchMovieImages } from '../api'
 
 export default function HomePage({ searchState, onSearch, onMovieClick }) {
     const { results, llmAnswer, loading, error, metrics } = searchState
     const hasResults = results && results.length > 0
+
+    useEffect(() => {
+        if (!results?.length) return
+        prefetchMovieImages(results).catch(() => {})
+    }, [results])
 
     return (
         <div>
